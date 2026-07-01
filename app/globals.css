@@ -1,0 +1,238 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ===================================================
+   Design Tokens — Tailwind CSS v4 CSS-first config
+   =================================================== */
+@theme {
+  /* Font */
+  --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
+
+  /* Brand colors */
+  --color-primary: #0d7a5f;
+  --color-primary-hover: #0a6350;
+  --color-primary-dark: #16a085;
+
+  /* Text colors */
+  --color-ink: #16191c;
+  --color-body-text: #3f4548;
+  --color-muted: #6b7280;
+
+  /* Surface colors */
+  --color-surface: #ffffff;
+  --color-surface-dark: #121417;
+  --color-surface-soft: #f7f8f9;
+  --color-surface-soft-dark: #1a1d21;
+
+  /* Hairline */
+  --color-hairline: #e5e7eb;
+  --color-hairline-dark: #2a2e33;
+
+  /* Error */
+  --color-error: #ba1a1a;
+
+  /* Border radius */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-full: 9999px;
+
+  /* Shadows */
+  --shadow-elevated: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-header: 0 1px 4px rgba(0, 0, 0, 0.08);
+
+  /* Font sizes with line-heights */
+  --text-display-xl: 32px;
+  --text-display-xl--line-height: 40px;
+  --text-display-xl--letter-spacing: -0.02em;
+  --text-display-xl--font-weight: 700;
+
+  --text-display-lg: 24px;
+  --text-display-lg--line-height: 32px;
+  --text-display-lg--letter-spacing: -0.01em;
+  --text-display-lg--font-weight: 600;
+
+  --text-display-md: 20px;
+  --text-display-md--line-height: 28px;
+  --text-display-md--letter-spacing: -0.01em;
+  --text-display-md--font-weight: 600;
+
+  --text-body-md: 16px;
+  --text-body-md--line-height: 24px;
+  --text-body-md--font-weight: 400;
+
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 20px;
+  --text-body-sm--font-weight: 400;
+
+  --text-label-caps: 12px;
+  --text-label-caps--line-height: 16px;
+  --text-label-caps--letter-spacing: 0.05em;
+  --text-label-caps--font-weight: 600;
+
+  /* Animations */
+  --animate-fade-up: fadeUp 0.5s ease-out forwards;
+  --animate-slide-in: slideIn 0.3s ease-out forwards;
+  --animate-check-draw: checkDraw 0.4s ease-out forwards;
+  --animate-spin-slow: spin 2s linear infinite;
+
+  @keyframes fadeUp {
+    0% { opacity: 0; transform: translateY(16px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes slideIn {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(0); }
+  }
+  @keyframes checkDraw {
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+}
+
+/* ===================================================
+   Base styles
+   =================================================== */
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    overflow-x: hidden;
+  }
+
+  .dark body {
+    background-color: var(--color-surface-dark);
+    color: #f1f5f9;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    color: var(--color-primary);
+  }
+}
+
+/* ===================================================
+   Utilities
+   =================================================== */
+@layer utilities {
+  .animate-on-scroll {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+  }
+
+  .animate-on-scroll.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .card-hover {
+    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+  }
+
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .header-scrolled {
+    box-shadow: var(--shadow-header);
+  }
+
+  .drawer-overlay {
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(2px);
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Stagger transition delays */
+  .stagger-1 { transition-delay: 0ms; }
+  .stagger-2 { transition-delay: 80ms; }
+  .stagger-3 { transition-delay: 160ms; }
+  .stagger-4 { transition-delay: 240ms; }
+  .stagger-5 { transition-delay: 320ms; }
+  .stagger-6 { transition-delay: 400ms; }
+
+  /* Hairline border */
+  .border-hairline {
+    border: 1px solid var(--color-hairline);
+  }
+
+  .dark .border-hairline {
+    border-color: var(--color-hairline-dark);
+  }
+
+  /* Line clamp */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Rounded radius aliases */
+  .rounded-sm { border-radius: var(--radius-sm); }
+  .rounded-md { border-radius: var(--radius-md); }
+  .rounded-full { border-radius: var(--radius-full); }
+}
+
+/* ===================================================
+   Global Dark Mode overrides
+   Covers all section/page backgrounds without needing
+   dark: on every individual component.
+   =================================================== */
+.dark body {
+  background-color: var(--color-surface-dark);
+  color: #e8eaed;
+}
+
+/* Section / page backgrounds */
+.dark .bg-white   { background-color: #0d1117 !important; }
+.dark .bg-surface-soft { background-color: #161b22 !important; }
+
+/* Text */
+.dark .text-ink        { color: #e8eaed !important; }
+.dark .text-body-text  { color: #9ca3af !important; }
+.dark .text-muted      { color: #6b7280 !important; }
+
+/* Cards & containers */
+.dark .border-hairline { border-color: #30363d !important; }
+
+/* Card surfaces (explicit bg-white inside dark sections) */
+.dark section .bg-white,
+.dark aside .bg-white {
+  background-color: #161b22 !important;
+}
+
+/* bg-ink CTA sections stay ultra-dark (intentional) */
+.dark .bg-ink { background-color: #010409 !important; }
+
