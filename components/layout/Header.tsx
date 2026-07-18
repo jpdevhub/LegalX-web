@@ -10,11 +10,10 @@ import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { label: 'Home', href: '/' },
-  { label: 'Legal Documents', href: '/legal-documents' },
-  { label: 'Legal Consultation', href: '/consultation' },
-  { label: 'Business Law', href: '/business-law' },
+  { label: 'Documents', href: '/documents' },
+  { label: 'Talk to a Lawyer', href: '/talk-to-lawyer' },
+  { label: 'Awards', href: '/awards' },
   { label: 'About Us', href: '/about' },
-  { label: 'Contact', href: '/contact' },
 ]
 
 export function Header() {
@@ -122,12 +121,12 @@ export function Header() {
 
             {/* CTA button — desktop only */}
             <Button
-              href="/request"
+              href="/documents"
               variant="primary"
               size="sm"
               className="hidden lg:inline-flex"
             >
-              Request a Document
+              Our Services
             </Button>
 
             {/* Hamburger — mobile */}
@@ -214,8 +213,8 @@ export function Header() {
 
         {/* Drawer footer */}
         <div className="px-4 py-5 border-t border-hairline dark:border-hairline-dark flex-shrink-0">
-          <Button href="/request" variant="primary" size="md" fullWidth>
-            Request a Document
+          <Button href="/documents" variant="primary" size="md" fullWidth>
+            Our Services
           </Button>
         </div>
       </aside>

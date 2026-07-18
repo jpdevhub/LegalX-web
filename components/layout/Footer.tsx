@@ -4,20 +4,19 @@ import { LXLogo } from '@/components/ui/LXLogo'
 const FOOTER_LINKS = {
   company: [
     { label: 'About Us', href: '/about' },
-    { label: 'Careers', href: '/careers' },
-    { label: 'Press', href: '/press' },
+    { label: 'Awards', href: '/awards' },
+    { label: 'Talk to a Lawyer', href: '/talk-to-lawyer' },
   ],
   services: [
-    { label: 'Legal Documents', href: '/legal-documents' },
-    { label: 'Legal Consultation', href: '/consultation' },
-    { label: 'Business Law', href: '/business-law' },
-    { label: 'Trademark Filing', href: '/trademark' },
+    { label: 'Legal Services', href: '/documents' },
+    { label: 'GST Registration', href: '/documents/gst-registration' },
+    { label: 'FSSAI Food License', href: '/documents/fssai-registration' },
+    { label: 'Trademark Registration', href: '/documents/trademark-registration' },
   ],
   legal: [
     { label: 'Privacy Policy', href: '/privacy' },
     { label: 'Terms of Service', href: '/terms' },
     { label: 'Compliance', href: '/compliance' },
-    { label: 'Cookie Policy', href: '/cookies' },
   ],
 }
 
@@ -43,18 +42,12 @@ export function Footer() {
             <address className="not-italic text-body-sm text-muted dark:text-slate-400 space-y-1.5">
               <div className="flex items-start gap-2">
                 <LocationIcon className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                <span>12B Connaught Place, New Delhi – 110 001</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <PhoneIcon className="w-4 h-4 text-primary flex-shrink-0" />
-                <a href="tel:+919810012345" className="hover:text-primary transition-colors">
-                  +91 98100 12345
-                </a>
+                <span>Nandlalpur, Kahalgaon, Bhagalpur, Bihar – 813222</span>
               </div>
               <div className="flex items-center gap-2">
                 <MailIcon className="w-4 h-4 text-primary flex-shrink-0" />
-                <a href="mailto:consult@legalx.in" className="hover:text-primary transition-colors">
-                  consult@legalx.in
+                <a href="mailto:legalxonline@gmail.com" className="hover:text-primary transition-colors">
+                  legalxonline@gmail.com
                 </a>
               </div>
             </address>

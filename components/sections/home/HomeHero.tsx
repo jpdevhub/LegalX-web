@@ -16,7 +16,7 @@ export function HomeHero() {
           <FadeUp className="flex flex-col gap-7">
             <div className="inline-flex items-center gap-2 text-label-caps text-primary bg-primary/8 border border-primary/20 rounded-full px-4 py-1.5 w-fit">
               <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden />
-              AI-Powered Legal Technology Platform
+              Trusted Legal Services Online
             </div>
 
             <h1
@@ -30,15 +30,15 @@ export function HomeHero() {
             </h1>
 
             <p className="text-body-md text-body-text max-w-lg leading-relaxed">
-              LegalX is an AI-powered legal technology platform designed to bridge the gap between people and legal professionals. We simplify legal documentation, connect users with verified lawyers, and make legal assistance faster, more transparent, and affordable.
+              LegalX makes legal services simple, affordable, and accessible for every Indian. From business registrations to expert legal consultation — handled online by qualified professionals.
             </p>
 
             <div className="flex flex-wrap gap-3">
-              <Button href="/request" variant="primary" size="md">
+              <Button href="/documents" variant="primary" size="md">
                 Get Started
               </Button>
-              <Button href="/consultation" variant="secondary" size="md">
-                Hire a Lawyer
+              <Button href="/talk-to-lawyer" variant="secondary" size="md">
+                Talk to a Lawyer
               </Button>
             </div>
           </FadeUp>

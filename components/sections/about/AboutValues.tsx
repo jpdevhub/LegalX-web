@@ -77,7 +77,7 @@ export function AboutValues() {
         >
           {VALUES.map((value) => (
             <FadeUpChild key={value.title}>
-              <div className="flex flex-col gap-4 p-6 bg-white rounded-md border border-hairline h-full transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card-hover hover:border-primary/20 cursor-default">
+              <div className="flex flex-col gap-4 p-6 bg-surface-soft rounded-md h-full transition-all duration-150 hover:-translate-y-0.5 hover:shadow-card-hover cursor-default">
                 <div className="w-12 h-12 rounded-sm bg-primary/8 flex items-center justify-center flex-shrink-0">
                   {value.icon}
                 </div>

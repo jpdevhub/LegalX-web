@@ -9,9 +9,13 @@
   --font-sans: var(--font-inter), "Inter", system-ui, sans-serif;
 
   /* Brand colors */
-  --color-primary: #0d7a5f;
-  --color-primary-hover: #0a6350;
-  --color-primary-dark: #16a085;
+  --color-primary: #C9A227;
+  --color-primary-hover: #B08A1E;
+  --color-primary-dark: #D4AF37;
+
+  /* Price / accent green */
+  --color-accent-green: #0d7a5f;
+  --color-accent-green-dark: #16a085;
 
   /* Text colors */
   --color-ink: #16191c;
@@ -77,16 +81,37 @@
   --animate-spin-slow: spin 2s linear infinite;
 
   @keyframes fadeUp {
-    0% { opacity: 0; transform: translateY(16px); }
-    100% { opacity: 1; transform: translateY(0); }
+    0% {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
   @keyframes slideIn {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(0); }
+    0% {
+      transform: translateX(100%);
+    }
+
+    100% {
+      transform: translateX(0);
+    }
   }
+
   @keyframes checkDraw {
-    0% { opacity: 0; transform: scale(0.5); }
-    100% { opacity: 1; transform: scale(1); }
+    0% {
+      opacity: 0;
+      transform: scale(0.5);
+    }
+
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
 }
 
@@ -175,12 +200,29 @@
   }
 
   /* Stagger transition delays */
-  .stagger-1 { transition-delay: 0ms; }
-  .stagger-2 { transition-delay: 80ms; }
-  .stagger-3 { transition-delay: 160ms; }
-  .stagger-4 { transition-delay: 240ms; }
-  .stagger-5 { transition-delay: 320ms; }
-  .stagger-6 { transition-delay: 400ms; }
+  .stagger-1 {
+    transition-delay: 0ms;
+  }
+
+  .stagger-2 {
+    transition-delay: 80ms;
+  }
+
+  .stagger-3 {
+    transition-delay: 160ms;
+  }
+
+  .stagger-4 {
+    transition-delay: 240ms;
+  }
+
+  .stagger-5 {
+    transition-delay: 320ms;
+  }
+
+  .stagger-6 {
+    transition-delay: 400ms;
+  }
 
   /* Hairline border */
   .border-hairline {
@@ -200,9 +242,17 @@
   }
 
   /* Rounded radius aliases */
-  .rounded-sm { border-radius: var(--radius-sm); }
-  .rounded-md { border-radius: var(--radius-md); }
-  .rounded-full { border-radius: var(--radius-full); }
+  .rounded-sm {
+    border-radius: var(--radius-sm);
+  }
+
+  .rounded-md {
+    border-radius: var(--radius-md);
+  }
+
+  .rounded-full {
+    border-radius: var(--radius-full);
+  }
 }
 
 /* ===================================================
@@ -216,16 +266,31 @@
 }
 
 /* Section / page backgrounds */
-.dark .bg-white   { background-color: #0d1117 !important; }
-.dark .bg-surface-soft { background-color: #161b22 !important; }
+.dark .bg-white {
+  background-color: #0d1117 !important;
+}
+
+.dark .bg-surface-soft {
+  background-color: #161b22 !important;
+}
 
 /* Text */
-.dark .text-ink        { color: #e8eaed !important; }
-.dark .text-body-text  { color: #9ca3af !important; }
-.dark .text-muted      { color: #6b7280 !important; }
+.dark .text-ink {
+  color: #e8eaed !important;
+}
+
+.dark .text-body-text {
+  color: #9ca3af !important;
+}
+
+.dark .text-muted {
+  color: #6b7280 !important;
+}
 
 /* Cards & containers */
-.dark .border-hairline { border-color: #30363d !important; }
+.dark .border-hairline {
+  border-color: #30363d !important;
+}
 
 /* Card surfaces (explicit bg-white inside dark sections) */
 .dark section .bg-white,
@@ -234,5 +299,16 @@
 }
 
 /* bg-ink CTA sections stay ultra-dark (intentional) */
-.dark .bg-ink { background-color: #010409 !important; }
+.dark .bg-ink {
+  background-color: #010409 !important;
+}
 
+/* ===================================================
+   Browser Extension Compatibility
+   Tells Dark Reader to skip our SVGs so it doesn't
+   inject data-darkreader-inline-stroke attributes that
+   cause React hydration mismatches.
+   =================================================== */
+svg {
+  color-scheme: light dark;
+}

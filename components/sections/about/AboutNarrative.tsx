@@ -37,46 +37,26 @@ export function AboutNarrative() {
             </div>
           </FadeUp>
 
-          {/* Right — Mission + Vision */}
-          <FadeUp delay={0.1} className="flex flex-col gap-6">
-            <div className="p-8 rounded-md border border-hairline bg-surface-soft">
-              <div className="flex items-start gap-4 mb-4">
-                <div className="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <circle cx="12" cy="12" r="10" strokeLinecap="round" />
-                    <path d="M12 8v4l3 3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-display-md text-ink">Our Mission</h3>
-                  <p className="text-body-sm text-body-text mt-2 leading-relaxed">
-                    To make legal services accessible, affordable, transparent, and technology-driven for everyone — simplifying legal processes through intelligent, user-centric digital solutions.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 rounded-md border border-hairline bg-surface-soft">
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-sm bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
-                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" strokeLinecap="round" strokeLinejoin="round" />
-                    <circle cx="12" cy="12" r="3" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-display-md text-ink">Our Vision</h3>
-                  <p className="text-body-sm text-body-text mt-2 leading-relaxed">
-                    To become India's most trusted AI-powered LegalTech platform by transforming how legal services are delivered through innovation, automation, and digital accessibility.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-8 rounded-md border-2 border-primary bg-white">
-              <h3 className="text-display-md text-ink mb-3">Our Promise</h3>
+          {/* Right — Mission + Vision + Promise */}
+          <FadeUp delay={0.1} className="flex flex-col gap-8">
+            <div className="border-l-4 border-primary pl-6">
+              <h3 className="text-display-md text-ink mb-2">Our Mission</h3>
               <p className="text-body-sm text-body-text leading-relaxed">
-                At LegalX, we believe legal support should be simple, transparent, and available whenever you need it. Our goal is to empower every individual and business with trusted legal solutions backed by technology and expert professionals.
+                To make legal services accessible, affordable, transparent, and technology-driven for everyone — simplifying legal processes through intelligent, user-centric digital solutions.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-ink pl-6">
+              <h3 className="text-display-md text-ink mb-2">Our Vision</h3>
+              <p className="text-body-sm text-body-text leading-relaxed">
+                To become India's most trusted legal services platform — making quality legal help accessible to everyone through digital innovation and qualified professionals.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-ink pl-6">
+              <h3 className="text-display-md text-ink mb-2">Our Promise</h3>
+              <p className="text-body-sm text-body-text leading-relaxed">
+                At LegalX, we believe legal support should be simple, transparent, and available whenever you need it. Every individual and business deserves trusted legal solutions backed by technology and expert professionals.
               </p>
             </div>
           </FadeUp>

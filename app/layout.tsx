@@ -49,7 +49,28 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <head>
+        {/*
+          THEME INIT — runs synchronously before any paint.
+          Reads localStorage and applies dark class to <html> immediately,
+          eliminating the white flash (FOUC) when dark mode is active.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem('legalx-theme');if(t==='dark'||(t===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+          }}
+        />
+        {/*
+          DARK READER CLEANUP — removes extension-injected attrs before React hydrates
+          so there are no server/client HTML mismatches.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var els=document.querySelectorAll('[data-darkreader-inline-stroke],[data-darkreader-inline-fill],[data-darkreader-inline-color]');for(var i=0;i<els.length;i++){els[i].removeAttribute('data-darkreader-inline-stroke');els[i].removeAttribute('data-darkreader-inline-fill');els[i].removeAttribute('data-darkreader-inline-color');els[i].style.removeProperty('--darkreader-inline-stroke');els[i].style.removeProperty('--darkreader-inline-fill');els[i].style.removeProperty('--darkreader-inline-color');}}catch(e){}})();`,
+          }}
+        />
+      </head>
+      <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <DarkModeProvider>
           {/* Single Header — renders exactly once, prevents per-page inconsistency */}
           <Header />
@@ -64,5 +85,6 @@ export default function RootLayout({
         </DarkModeProvider>
       </body>
     </html>
+
   )
 }
