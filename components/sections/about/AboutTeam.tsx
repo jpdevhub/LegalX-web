@@ -1,103 +1,147 @@
 'use client'
 
-import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
+import Image from 'next/image'
+import { FadeUp } from '@/components/motion/MotionWrappers'
 
-const TEAM = [
+const FOUNDERS = [
   {
     name: 'Prince Kumar',
     role: 'Co-Founder & CEO',
-    bio: 'Passionate technology entrepreneur committed to solving real-world legal challenges through innovation. Combining expertise in technology with a vision for accessible legal services to empower individuals, professionals, and businesses.',
-    initials: 'PK',
+    photo: '/PrinceKumar.png',
+    bio: 'Passionate technology entrepreneur committed to solving real-world legal challenges through innovation. Prince built LegalX from the ground up with a vision to make professional legal services accessible and affordable to every Indian.',
+    achievements: [
+      {
+        label: 'Entrepreneurship Expo',
+        detail: 'Winner — Best Legal-Tech Innovation',
+      },
+      {
+        label: 'Smart Make-a-Thon',
+        detail: 'Winner — National Level Competition',
+      },
+      {
+        label: "Vice Chancellor's Award",
+        detail: 'Outstanding Startup Venture Award',
+      },
+      {
+        label: 'Eureka! IIT Bombay',
+        detail: 'Top 500 Startup — India',
+      },
+    ],
+    experiences: ['IIT Bombay Ecosystem', 'Legal-Tech Innovation', 'Startup India'],
   },
   {
     name: 'Raj Priya Singh',
     role: 'Co-Founder & CTO',
-    bio: 'Technology leader driving the engineering vision behind LegalX. Focused on building robust, scalable AI systems that make complex legal workflows simple, secure, and accessible for everyone.',
-    initials: 'RS',
+    photo: '/RajPriya.png',
+    bio: 'Technology leader driving the engineering vision behind LegalX. Raj focuses on building secure, scalable systems that make complex legal workflows simple and accessible for individuals and businesses across India.',
+    achievements: [
+      {
+        label: 'Smart Make-a-Thon',
+        detail: 'Winner — Technology & Innovation Track',
+      },
+      {
+        label: 'Startup India',
+        detail: 'Registered Startup — DPIIT Recognised',
+      },
+      {
+        label: 'Legal-Tech Pioneer',
+        detail: 'Innovating Digital Legal Infrastructure',
+      },
+      {
+        label: 'Build for Bharat',
+        detail: 'Accessible Legal Services for All Indians',
+      },
+    ],
+    experiences: ['Full-Stack Engineering', 'Legal-Tech Systems', 'Digital India'],
   },
 ]
 
-const MILESTONES = [
-  { label: 'Winner of Entrepreneurship Expo' },
-  { label: 'Winner of Smart Make-a-Thon' },
-  { label: "Vice Chancellor's Award for Startup Venture" },
-  { label: 'Top 500 Startup — Eureka! IIT Bombay' },
-  { label: 'Building the next generation of AI-powered LegalTech' },
-]
-
-function AvatarPlaceholder({ initials }: { initials: string }) {
-  return (
-    <div
-      className="w-28 h-28 rounded-full bg-surface-soft border-2 border-hairline flex items-center justify-center flex-shrink-0"
-      aria-hidden
-    >
-      <span className="text-[28px] font-bold text-primary select-none">{initials}</span>
-    </div>
-  )
-}
-
 export function AboutTeam() {
   return (
-    <section className="py-20 md:py-28 bg-white" aria-labelledby="team-heading">
+    <section className="py-20 md:py-28 bg-white dark:bg-surface-dark" aria-labelledby="team-heading">
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
 
-        {/* Founders */}
-        <FadeUp className="text-center mb-14">
+        {/* Section heading */}
+        <FadeUp className="text-center mb-16">
           <span className="text-label-caps text-primary uppercase tracking-widest">Meet the Founders</span>
           <h2
             id="team-heading"
-            className="text-ink mt-2 text-balance"
+            className="text-ink dark:text-white mt-2 text-balance"
             style={{ fontSize: 'clamp(24px, 3.5vw, 36px)', fontWeight: 700, lineHeight: 1.2 }}
           >
             The Minds Behind LegalX
           </h2>
-          <p className="text-body-md text-body-text mt-3 max-w-2xl mx-auto leading-relaxed">
-            LegalX was founded by passionate technology entrepreneurs committed to solving real-world legal challenges through innovation. By combining expertise in technology with a vision for accessible legal services, the founders are building a platform that empowers individuals, professionals, and businesses to navigate legal processes with confidence.
+          <p className="text-body-md text-body-text dark:text-slate-400 mt-3 max-w-2xl mx-auto leading-relaxed">
+            LegalX was founded by passionate entrepreneurs from Bihar who dared to simplify India's legal system.
           </p>
         </FadeUp>
 
-        <StaggerParent className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto mb-20">
-          {TEAM.map((member) => (
-            <FadeUpChild key={member.name}>
-              <div className="flex flex-col items-center text-center p-8 bg-surface-soft rounded-md border border-hairline h-full">
-                <AvatarPlaceholder initials={member.initials} />
-                <div className="mt-6">
-                  <h3 className="text-display-md text-ink">{member.name}</h3>
-                  <p className="text-label-caps text-primary uppercase tracking-widest mt-1">{member.role}</p>
-                  <p className="text-body-sm text-body-text mt-3 leading-relaxed max-w-xs mx-auto">{member.bio}</p>
-                </div>
-              </div>
-            </FadeUpChild>
-          ))}
-        </StaggerParent>
+        {/* Founder cards */}
+        <div className="space-y-20">
+          {FOUNDERS.map((founder, idx) => (
+            <FadeUp key={founder.name}>
+              <div className={`grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-10 lg:gap-16 items-start ${idx % 2 === 1 ? 'lg:grid-cols-[1fr_340px]' : ''}`}>
 
-        {/* Journey / Awards */}
-        <FadeUp>
-          <div className="border-t border-hairline pt-16">
-            <span className="text-label-caps text-primary uppercase tracking-widest">Our Journey</span>
-            <h2
-              className="text-ink mt-2 text-balance mb-8"
-              style={{ fontSize: 'clamp(22px, 3vw, 30px)', fontWeight: 700, lineHeight: 1.2 }}
-            >
-              Recognition &amp; Milestones
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {MILESTONES.map((m, i) => (
-                <div
-                  key={i}
-                  className="flex items-start gap-3 p-5 bg-surface-soft rounded-md border border-hairline"
-                >
-                  <div className="w-8 h-8 rounded-sm bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
+                {/* Photo + name column */}
+                <div className={`flex flex-col items-center lg:items-start ${idx % 2 === 1 ? 'lg:order-2' : ''}`}>
+                  {/* Photo */}
+                  <div className="relative w-64 h-80 lg:w-full lg:h-[380px] rounded-xl overflow-hidden shadow-lg mb-6 flex-shrink-0">
+                    <Image
+                      src={founder.photo}
+                      alt={`${founder.name}, ${founder.role} at LegalX`}
+                      fill
+                      className="object-cover object-top"
+                      sizes="(max-width: 1024px) 256px, 340px"
+                      priority={idx === 0}
+                    />
                   </div>
-                  <p className="text-body-sm text-body-text leading-relaxed">{m.label}</p>
+                  {/* Name + role below photo */}
+                  <div className="text-center lg:text-left w-full">
+                    <h3
+                      className="text-ink dark:text-white font-bold"
+                      style={{ fontSize: 'clamp(20px, 2.5vw, 26px)' }}
+                    >
+                      {founder.name}
+                    </h3>
+                    <p className="text-primary font-semibold text-body-sm mt-1">{founder.role}</p>
+                    <p className="text-body-sm text-body-text dark:text-slate-400 mt-3 leading-relaxed max-w-xs mx-auto lg:mx-0">
+                      {founder.bio}
+                    </p>
+                    {/* Past experiences chips */}
+                    <div className="flex flex-wrap gap-2 mt-4 justify-center lg:justify-start">
+                      {founder.experiences.map((exp) => (
+                        <span
+                          key={exp}
+                          className="text-[11px] font-semibold text-ink dark:text-white bg-surface-soft dark:bg-surface-soft-dark px-3 py-1 rounded-full"
+                        >
+                          {exp}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        </FadeUp>
+
+                {/* Achievement cards */}
+                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${idx % 2 === 1 ? 'lg:order-1' : ''}`}>
+                  {founder.achievements.map((ach) => (
+                    <div
+                      key={ach.label}
+                      className="bg-surface-soft dark:bg-surface-soft-dark rounded-xl p-6 hover:shadow-card-hover transition-shadow duration-200"
+                    >
+                      <p className="text-[13px] font-bold text-primary uppercase tracking-wide mb-1">
+                        {ach.label}
+                      </p>
+                      <p className="text-body-sm text-body-text dark:text-slate-400 leading-snug">
+                        {ach.detail}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+              </div>
+            </FadeUp>
+          ))}
+        </div>
 
       </div>
     </section>

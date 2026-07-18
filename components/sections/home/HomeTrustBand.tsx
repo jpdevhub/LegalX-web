@@ -3,7 +3,7 @@
 import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
 
 const WHY_ITEMS = [
-  { label: 'AI-powered legal solutions' },
+  { label: 'Qualified legal professionals' },
   { label: 'Verified legal professionals' },
   { label: 'Secure document management' },
   { label: 'Affordable, transparent pricing' },
@@ -40,8 +40,8 @@ const TRUST_PILLARS = [
         <polygon points="13,2 3,14 12,14 11,22 21,10 12,10" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
-    title: 'AI-Powered',
-    desc: 'Smart tools that simplify complex legal information and automate documentation workflows.',
+    title: 'Fast & Online',
+    desc: 'Complete your legal service from anywhere — no office visits, no paperwork queues.',
   },
 ]
 

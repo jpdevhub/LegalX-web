@@ -16,7 +16,7 @@ export function AboutHero() {
             Making Legal Services Simple, Affordable &amp; Accessible
           </h1>
           <p className="text-body-md text-body-text mt-5 leading-relaxed max-w-2xl">
-            LegalX is an AI-powered legal technology platform designed to bridge the gap between people and legal professionals. We simplify legal documentation, connect users with verified lawyers, and make legal assistance faster, more transparent, and affordable.
+            LegalX is a legal tech platform built to make professional legal services simple, affordable, and accessible for every Indian. We connect individuals and businesses with qualified lawyers and handle registrations, licenses, and documentation — entirely online.
           </p>
         </FadeUp>
       </div>
