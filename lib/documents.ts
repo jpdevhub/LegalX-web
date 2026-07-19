@@ -12,6 +12,7 @@ export interface RequiredDoc {
   desc: string
   required: boolean
   acceptedFormats: string
+  iconKey: 'pan' | 'aadhaar' | 'biz-cert' | 'id-proof' | 'address' | 'bank' | 'auth-letter' | 'rent' | 'photo' | 'noc' | 'food-list' | 'logo' | 'pan-card' | 'udyam' | 'biz-proof'
 }
 
 export interface FormField {
@@ -43,6 +44,7 @@ export interface LegalDocument {
   definitionQuote: string
   definitionSource: string
   keyPoints: string[]
+  benefits: string[]
   features: string[]
   faqs: DocumentFaq[]
   requiredDocs: RequiredDoc[]
@@ -86,15 +88,23 @@ export const DOCUMENTS: LegalDocument[] = [
       platformFee: 0,
       total: '₹1,499',
     },
+    benefits: [
+      'Legally collect GST from customers and issue tax invoices',
+      'Claim Input Tax Credit (ITC) on purchases to reduce tax burden',
+      'Sell across all states without legal restrictions on inter-state trade',
+      'List and sell on e-commerce platforms like Amazon, Flipkart, and Meesho',
+      'Enhance business credibility with government-verified GSTIN',
+      'Access government tenders and contracts that require GST registration',
+    ],
     requiredDocs: [
-      { id: 'pan', name: 'PAN Card of Applicant / Proprietor', desc: 'Permanent Account Number card of the business owner or authorized signatory.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'aadhaar', name: 'Aadhaar Card', desc: 'Aadhaar of the proprietor, partners, or directors.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'biz-proof', name: 'Business Registration / Incorporation Certificate', desc: 'Partnership deed, Certificate of Incorporation, or any registration proof.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'director-id', name: 'Identity & Address Proof of Promoters / Directors with Photographs', desc: 'Voter ID, Passport, or Driving Licence of all directors or partners.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'biz-address', name: 'Address Proof of Place of Business', desc: 'Electricity bill, water bill, or property tax receipt of the principal place of business.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'bank-stmt', name: 'Bank Account Statement / Cancelled Cheque', desc: 'Bank statement or cancelled cheque showing your business bank account.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'auth-letter', name: 'Letter of Authorization / Board Resolution for Authorized Signatory', desc: 'Required for companies and LLPs to authorize a person for GST registration.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'rent-agr', name: 'Rent Agreement (if PPOB is rented)', desc: 'Rental agreement of the principal place of business if the premises are not owned.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
+      { id: 'pan', name: 'PAN Card of Applicant / Proprietor', desc: 'Permanent Account Number card of the business owner or authorized signatory.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'pan' },
+      { id: 'aadhaar', name: 'Aadhaar Card', desc: 'Aadhaar of the proprietor, partners, or directors.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'aadhaar' },
+      { id: 'biz-proof', name: 'Business Registration / Incorporation Certificate', desc: 'Partnership deed, Certificate of Incorporation, or any registration proof.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'biz-cert' },
+      { id: 'director-id', name: 'Identity & Address Proof of Promoters / Directors', desc: 'Voter ID, Passport, or Driving Licence of all directors or partners.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'id-proof' },
+      { id: 'biz-address', name: 'Address Proof of Place of Business', desc: 'Electricity bill, water bill, or property tax receipt of the principal place of business.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'address' },
+      { id: 'bank-stmt', name: 'Bank Account Statement / Cancelled Cheque', desc: 'Bank statement or cancelled cheque showing your business bank account.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'bank' },
+      { id: 'auth-letter', name: 'Letter of Authorization / Board Resolution', desc: 'Required for companies and LLPs to authorize a person for GST registration.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'auth-letter' },
+      { id: 'rent-agr', name: 'Rent Agreement (if PPOB is rented)', desc: 'Rental agreement of the principal place of business if the premises are not owned.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'rent' },
     ],
     formFields: [
       { id: 'biz-name', label: 'Business / Trade Name', type: 'text', placeholder: 'Legal name of your business', required: true, group: 'Business Details' },
@@ -151,13 +161,21 @@ export const DOCUMENTS: LegalDocument[] = [
       platformFee: 0,
       total: '₹1,999',
     },
+    benefits: [
+      'Operate your food business fully legally under Indian law',
+      'Build consumer trust with the official FSSAI logo on your products',
+      'Sell on Swiggy, Zomato, Amazon Fresh and other delivery platforms',
+      'Expand to new states and markets with a valid food license',
+      'Avoid penalties up to ₹5 lakh and business closure orders',
+      'Access government food-sector subsidies and schemes',
+    ],
     requiredDocs: [
-      { id: 'passport-photo', name: "Passport-size Photograph of Applicant", desc: 'Recent passport-size photograph of the food business operator.', required: true, acceptedFormats: 'JPG, PNG (Max 2MB)' },
-      { id: 'id-proof', name: 'Identity Proof', desc: 'Aadhaar card, Voter ID, or PAN card of the applicant.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'address-proof', name: 'Address Proof of Business Premises', desc: 'Electricity bill, rent agreement, or property tax receipt of the food business location.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'noc-owner', name: 'NOC from Property Owner (if rented)', desc: 'No Objection Certificate from the building owner if the premises are rented.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'biz-constitution', name: 'Business Constitution Document', desc: 'Partnership deed, Certificate of Incorporation, or MOA/AOA for companies.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'food-list', name: 'List of Food Products to be Manufactured / Sold', desc: 'Required for State and Central license applications.', required: false, acceptedFormats: 'PDF, DOCX (Max 5MB)' },
+      { id: 'passport-photo', name: 'Passport-size Photograph of Applicant', desc: 'Recent passport-size photograph of the food business operator.', required: true, acceptedFormats: 'JPG, PNG (Max 2MB)', iconKey: 'photo' },
+      { id: 'id-proof', name: 'Identity Proof', desc: 'Aadhaar card, Voter ID, or PAN card of the applicant.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'id-proof' },
+      { id: 'address-proof', name: 'Address Proof of Business Premises', desc: 'Electricity bill, rent agreement, or property tax receipt of the food business location.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'address' },
+      { id: 'noc-owner', name: 'NOC from Property Owner (if rented)', desc: 'No Objection Certificate from the building owner if the premises are rented.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'noc' },
+      { id: 'biz-constitution', name: 'Business Constitution Document', desc: 'Partnership deed, Certificate of Incorporation, or MOA/AOA for companies.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'biz-cert' },
+      { id: 'food-list', name: 'List of Food Products to be Manufactured / Sold', desc: 'Required for State and Central license applications.', required: false, acceptedFormats: 'PDF, DOCX (Max 5MB)', iconKey: 'food-list' },
     ],
     formFields: [
       { id: 'fbo-name', label: 'Food Business Operator (FBO) Name', type: 'text', placeholder: 'Individual or company name', required: true, group: 'Business Details' },
@@ -211,12 +229,20 @@ export const DOCUMENTS: LegalDocument[] = [
       platformFee: 0,
       total: '₹6,999+',
     },
+    benefits: [
+      'Exclusive legal ownership of your brand name, logo, or slogan in India',
+      'Use the ™ symbol immediately after filing your application',
+      'Use the ® symbol upon full registration — strong market signal',
+      'Sue for damages and seek injunctions against infringers and copycats',
+      'License or franchise your brand to generate royalty revenue',
+      'Protect your brand on e-commerce platforms under IP infringement policies',
+    ],
     requiredDocs: [
-      { id: 'applicant-id', name: "Applicant's Aadhaar / ID Proof", desc: 'Aadhaar card, Passport, or Voter ID of the trademark applicant.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'brand-logo', name: 'Brand Logo / Trademark Image', desc: 'High-resolution image of the logo or brand mark to be trademarked. Must be in JPEG format, 8cm x 8cm, 72 DPI.', required: true, acceptedFormats: 'JPG only (Max 2MB, 8cm×8cm)' },
-      { id: 'biz-proof', name: 'Business Registration Proof', desc: 'Certificate of Incorporation, GST registration, or any government registration document.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'pan', name: 'PAN Card', desc: 'PAN card of the individual or company for verification.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
-      { id: 'udyam', name: 'Udyam / MSME Registration Certificate', desc: 'Required if applying as a startup or MSME to avail discounted government fee (₹4,500 instead of ₹9,000).', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)' },
+      { id: 'applicant-id', name: "Applicant's Aadhaar / ID Proof", desc: 'Aadhaar card, Passport, or Voter ID of the trademark applicant.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'aadhaar' },
+      { id: 'brand-logo', name: 'Brand Logo / Trademark Image', desc: 'High-resolution image of the logo or brand mark. JPEG format, 8cm x 8cm, 72 DPI.', required: true, acceptedFormats: 'JPG only (Max 2MB, 8cm×8cm)', iconKey: 'logo' },
+      { id: 'biz-proof', name: 'Business Registration Proof', desc: 'Certificate of Incorporation, GST registration, or any government registration document.', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'biz-proof' },
+      { id: 'pan', name: 'PAN Card', desc: 'PAN card of the individual or company for verification.', required: true, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'pan-card' },
+      { id: 'udyam', name: 'Udyam / MSME Registration Certificate', desc: 'Required if applying as a startup or MSME to avail discounted government fee (₹4,500 instead of ₹9,000).', required: false, acceptedFormats: 'PDF, JPG, PNG (Max 5MB)', iconKey: 'udyam' },
     ],
     formFields: [
       { id: 'brand-name', label: 'Brand / Trademark Name', type: 'text', placeholder: 'The exact name to be trademarked', required: true, group: 'Trademark Details' },
