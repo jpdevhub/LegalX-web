@@ -8,6 +8,7 @@ const FOUNDERS = [
     name: 'Prince Kumar',
     role: 'Co-Founder & CEO',
     photo: '/PrinceKumar.png',
+    objectPosition: 'center top',
     bio: 'Passionate technology entrepreneur committed to solving real-world legal challenges through innovation. Prince built LegalX from the ground up with a vision to make professional legal services accessible and affordable to every Indian.',
     achievements: [
       {
@@ -33,6 +34,7 @@ const FOUNDERS = [
     name: 'Raj Priya Singh',
     role: 'Co-Founder & CTO',
     photo: '/RajPriya.png',
+    objectPosition: '50% 25%',
     bio: 'Technology leader driving the engineering vision behind LegalX. Raj focuses on building secure, scalable systems that make complex legal workflows simple and accessible for individuals and businesses across India.',
     achievements: [
       {
@@ -80,17 +82,18 @@ export function AboutTeam() {
         <div className="space-y-20">
           {FOUNDERS.map((founder, idx) => (
             <FadeUp key={founder.name}>
-              <div className={`grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-10 lg:gap-16 items-start ${idx % 2 === 1 ? 'lg:grid-cols-[1fr_340px]' : ''}`}>
+              <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-10 lg:gap-16 items-start">
 
                 {/* Photo + name column */}
-                <div className={`flex flex-col items-center lg:items-start ${idx % 2 === 1 ? 'lg:order-2' : ''}`}>
+                <div className="flex flex-col items-center lg:items-start">
                   {/* Photo */}
-                  <div className="relative w-64 h-80 lg:w-full lg:h-[380px] rounded-xl overflow-hidden shadow-lg mb-6 flex-shrink-0">
+                  <div className="relative w-64 h-80 lg:w-full lg:h-[420px] rounded-xl overflow-hidden shadow-lg mb-6 flex-shrink-0">
                     <Image
                       src={founder.photo}
                       alt={`${founder.name}, ${founder.role} at LegalX`}
                       fill
-                      className="object-cover object-top"
+                      className="object-cover"
+                      style={{ objectPosition: founder.objectPosition }}
                       sizes="(max-width: 1024px) 256px, 340px"
                       priority={idx === 0}
                     />
@@ -122,7 +125,7 @@ export function AboutTeam() {
                 </div>
 
                 {/* Achievement cards */}
-                <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 ${idx % 2 === 1 ? 'lg:order-1' : ''}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {founder.achievements.map((ach) => (
                     <div
                       key={ach.label}
