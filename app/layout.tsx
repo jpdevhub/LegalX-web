@@ -69,6 +69,8 @@ export default function RootLayout({
             __html: `(function(){try{var els=document.querySelectorAll('[data-darkreader-inline-stroke],[data-darkreader-inline-fill],[data-darkreader-inline-color]');for(var i=0;i<els.length;i++){els[i].removeAttribute('data-darkreader-inline-stroke');els[i].removeAttribute('data-darkreader-inline-fill');els[i].removeAttribute('data-darkreader-inline-color');els[i].style.removeProperty('--darkreader-inline-stroke');els[i].style.removeProperty('--darkreader-inline-fill');els[i].style.removeProperty('--darkreader-inline-color');}}catch(e){}})();`,
           }}
         />
+        {/* Razorpay checkout SDK — loaded globally so payment step works without dynamic import */}
+        <script src="https://checkout.razorpay.com/v1/checkout.js" async />
       </head>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <DarkModeProvider>

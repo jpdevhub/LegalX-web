@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { LXLogo } from '@/components/ui/LXLogo'
+import { LXLogoMark } from '@/components/ui/LXLogo'
 
 const FOOTER_LINKS = {
   company: [
@@ -31,8 +31,11 @@ export function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-12 mb-12">
           {/* Brand column */}
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center mb-5" aria-label="LegalX home">
-              <LXLogo height={72} className="text-ink dark:text-white" />
+            <Link href="/" className="flex flex-col items-start gap-3 mb-5" aria-label="LegalX home">
+              <LXLogoMark height={48} className="text-ink dark:text-white" />
+              <span className="font-serif text-[13px] tracking-[0.3em] font-medium text-ink dark:text-white ml-1">
+                LEGALXONLINE
+              </span>
             </Link>
             <p className="text-body-sm text-muted dark:text-slate-400 max-w-xs mb-5 leading-relaxed">
               India's trusted legal tech platform. Professional legal protection for individuals and businesses — fast, affordable, and authoritative.
