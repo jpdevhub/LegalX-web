@@ -49,8 +49,8 @@ export function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <MailIcon className="w-4 h-4 text-primary flex-shrink-0" />
-                <a href="mailto:legalxonline@gmail.com" className="hover:text-primary transition-colors">
-                  legalxonline@gmail.com
+                <a href="mailto:contact@legalxonline.com" className="hover:text-primary transition-colors">
+                  contact@legalxonline.com
                 </a>
               </div>
             </address>
@@ -127,13 +127,13 @@ export function Footer() {
           </p>
 
           {/* Trust badges */}
-          <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-1.5 text-label-caps text-muted border border-hairline dark:border-hairline-dark rounded-full px-3 py-1">
-              <ShieldIcon className="w-3.5 h-3.5 text-primary" />
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5 text-label-caps text-muted">
+              <ShieldIcon className="w-4 h-4 text-primary" />
               SSL Secured
             </span>
-            <span className="inline-flex items-center gap-1.5 text-label-caps text-muted border border-hairline dark:border-hairline-dark rounded-full px-3 py-1">
-              <VerifiedIcon className="w-3.5 h-3.5 text-primary" />
+            <span className="inline-flex items-center gap-1.5 text-label-caps text-muted">
+              <VerifiedIcon className="w-4 h-4 text-primary" />
               MCA Registered
             </span>
           </div>

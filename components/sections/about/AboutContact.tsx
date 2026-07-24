@@ -28,10 +28,10 @@ export function AboutContact() {
               <div>
                 <p className="font-semibold text-ink">Email</p>
                 <a
-                  href="mailto:legalxonline@gmail.com"
-                  className="hover:text-primary transition-colors duration-150"
+                  href="mailto:contact@legalxonline.com"
+                  className="text-body-md text-ink dark:text-white font-medium hover:text-primary transition-colors"
                 >
-                  legalxonline@gmail.com
+                  contact@legalxonline.com
                 </a>
               </div>
             </address>

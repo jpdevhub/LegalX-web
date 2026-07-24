@@ -224,14 +224,7 @@
     transition-delay: 400ms;
   }
 
-  /* Hairline border */
-  .border-hairline {
-    border: 1px solid var(--color-hairline);
-  }
 
-  .dark .border-hairline {
-    border-color: var(--color-hairline-dark);
-  }
 
   /* Line clamp */
   .line-clamp-2 {

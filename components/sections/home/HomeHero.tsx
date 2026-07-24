@@ -44,26 +44,41 @@ export function HomeHero() {
           </FadeUp>
 
           {/* Right column — stat cards */}
-          <FadeUp delay={0.12} className="grid grid-cols-2 gap-4 lg:gap-5">
-            <div className="col-span-1 row-span-2 flex flex-col justify-between bg-surface-soft border border-hairline rounded-md p-6 min-h-[220px]">
-              <div>
-                <span className="text-label-caps text-muted uppercase tracking-widest">Documents Processed</span>
-                <div className="text-[40px] font-bold text-primary leading-tight mt-2">50k+</div>
-                <p className="text-body-sm text-body-text mt-2 leading-snug">
-                  Legal documents prepared, reviewed &amp; managed on our platform.
-                </p>
-              </div>
-              <div className="mt-4 h-0.5 w-12 bg-primary rounded-full" aria-hidden />
+          <FadeUp delay={0.12} className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
+            {/* Card 1 */}
+            <div className="flex flex-col bg-surface-soft border border-hairline rounded-md p-5 lg:p-6">
+              <span className="text-label-caps text-muted uppercase tracking-widest mb-1.5">Launch Offer</span>
+              <div className="text-display-md font-bold text-ink leading-tight mb-2">Flat 20% Off</div>
+              <p className="text-body-sm text-body-text leading-snug mt-auto">
+                On your first document or registration with LegalX.
+              </p>
             </div>
 
-            <div className="col-span-1 flex flex-col justify-between bg-primary border border-primary rounded-md p-5 min-h-[100px]">
-              <span className="text-label-caps text-white/70 uppercase tracking-widest">Verified Lawyers</span>
-              <div className="text-[28px] font-bold text-white leading-tight mt-1">200+</div>
+            {/* Card 2 - Gold Accent */}
+            <div className="flex flex-col bg-primary border border-primary rounded-md p-5 lg:p-6 shadow-elevated">
+              <span className="text-label-caps text-white/80 uppercase tracking-widest mb-1.5">Professionals</span>
+              <div className="text-display-md font-bold text-white leading-tight mb-2">CA &amp; Advocate Verified</div>
+              <p className="text-body-sm text-white/90 leading-snug mt-auto">
+                Every document is prepared and signed off by a licensed professional, not a template bot.
+              </p>
             </div>
 
-            <div className="col-span-1 flex flex-col justify-between bg-white border border-hairline rounded-md p-5 min-h-[100px]">
-              <span className="text-label-caps text-muted uppercase tracking-widest">Client Satisfaction</span>
-              <div className="text-[28px] font-bold text-ink leading-tight mt-1">99.8%</div>
+            {/* Card 3 */}
+            <div className="flex flex-col bg-white border border-hairline rounded-md p-5 lg:p-6 shadow-sm">
+              <span className="text-label-caps text-muted uppercase tracking-widest mb-1.5">Turnaround</span>
+              <div className="text-display-md font-bold text-ink leading-tight mb-2">24–48 Hrs</div>
+              <p className="text-body-sm text-body-text leading-snug mt-auto">
+                Most drafts and filings are ready within a day of receiving your details.
+              </p>
+            </div>
+
+            {/* Card 4 */}
+            <div className="flex flex-col bg-white border border-hairline rounded-md p-5 lg:p-6 shadow-sm">
+              <span className="text-label-caps text-muted uppercase tracking-widest mb-1.5">Pricing</span>
+              <div className="text-display-md font-bold text-ink leading-tight mb-2">Zero Hidden Charges</div>
+              <p className="text-body-sm text-body-text leading-snug mt-auto">
+                Government fee and professional fee always shown separately, upfront.
+              </p>
             </div>
           </FadeUp>
 
