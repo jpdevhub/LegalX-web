@@ -110,17 +110,6 @@ export function AboutTeam() {
                     <p className="text-body-sm text-body-text dark:text-slate-400 mt-3 leading-relaxed max-w-xs mx-auto lg:mx-0">
                       {founder.bio}
                     </p>
-                    {/* Past experiences chips */}
-                    <div className="flex flex-wrap gap-2 mt-4 justify-center lg:justify-start">
-                      {founder.experiences.map((exp) => (
-                        <span
-                          key={exp}
-                          className="text-[11px] font-semibold text-ink dark:text-white bg-surface-soft dark:bg-surface-soft-dark px-3 py-1 rounded-full"
-                        >
-                          {exp}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                 </div>
 
@@ -129,7 +118,7 @@ export function AboutTeam() {
                   {founder.achievements.map((ach) => (
                     <div
                       key={ach.label}
-                      className="bg-surface-soft dark:bg-surface-soft-dark rounded-xl p-6 hover:shadow-card-hover transition-shadow duration-200"
+                      className="bg-surface-soft dark:bg-surface-soft-dark rounded-md p-5"
                     >
                       <p className="text-[13px] font-bold text-primary uppercase tracking-wide mb-1">
                         {ach.label}

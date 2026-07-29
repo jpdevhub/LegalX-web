@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!doc) return {}
   return {
     title: `${doc.title} — LegalX`,
-    description: `${doc.shortDesc} ${doc.price}. Generate instantly with AI-assisted drafting.`,
+    description: `${doc.shortDesc} ${doc.price}. Handled by qualified legal professionals. ${doc.duration}.`,
   }
 }
 

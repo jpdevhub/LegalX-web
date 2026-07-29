@@ -1,7 +1,7 @@
 'use client'
 
 import { Button } from '@/components/ui/Button'
-import { FadeUp } from '@/components/motion/MotionWrappers'
+import { motion } from 'framer-motion'
 
 export function HomeHero() {
   return (
@@ -11,18 +11,18 @@ export function HomeHero() {
     >
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
         <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-12 lg:gap-16 items-center">
-
           {/* Left column */}
-          <FadeUp className="flex flex-col gap-7">
-            <div className="inline-flex items-center gap-2 text-label-caps text-primary bg-primary/8 border border-primary/20 rounded-full px-4 py-1.5 w-fit">
-              <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden />
-              Trusted Legal Services Online
-            </div>
-
+          <motion.div
+            className="flex flex-col gap-7"
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: '-50px' }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
+          >
             <h1
               id="hero-heading"
               className="text-ink text-balance"
-              style={{ fontSize: 'clamp(30px, 5vw, 52px)', fontWeight: 700, lineHeight: 1.12 }}
+              style={{ fontSize: 'clamp(30px, 5vw, 52px)', fontWeight: 700, lineHeight: 1.1 }}
             >
               Making Legal Services{' '}
               <span className="text-primary">Simple, Affordable</span>{' '}
@@ -41,47 +41,77 @@ export function HomeHero() {
                 Talk to a Lawyer
               </Button>
             </div>
-          </FadeUp>
+          </motion.div>
 
           {/* Right column — stat cards */}
-          <FadeUp delay={0.12} className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5">
-            {/* Card 1 */}
-            <div className="flex flex-col bg-surface-soft border border-hairline rounded-md p-5 lg:p-6">
-              <span className="text-label-caps text-muted uppercase tracking-widest mb-1.5">Launch Offer</span>
-              <div className="text-display-md font-bold text-ink leading-tight mb-2">Flat 20% Off</div>
-              <p className="text-body-sm text-body-text leading-snug mt-auto">
-                On your first document or registration with LegalX.
-              </p>
-            </div>
-
-            {/* Card 2 - Gold Accent */}
-            <div className="flex flex-col bg-primary border border-primary rounded-md p-5 lg:p-6 shadow-elevated">
-              <span className="text-label-caps text-white/80 uppercase tracking-widest mb-1.5">Professionals</span>
-              <div className="text-display-md font-bold text-white leading-tight mb-2">CA &amp; Advocate Verified</div>
-              <p className="text-body-sm text-white/90 leading-snug mt-auto">
-                Every document is prepared and signed off by a licensed professional, not a template bot.
-              </p>
-            </div>
-
-            {/* Card 3 */}
-            <div className="flex flex-col bg-white border border-hairline rounded-md p-5 lg:p-6 shadow-sm">
-              <span className="text-label-caps text-muted uppercase tracking-widest mb-1.5">Turnaround</span>
-              <div className="text-display-md font-bold text-ink leading-tight mb-2">24–48 Hrs</div>
-              <p className="text-body-sm text-body-text leading-snug mt-auto">
-                Most drafts and filings are ready within a day of receiving your details.
-              </p>
-            </div>
-
-            {/* Card 4 */}
-            <div className="flex flex-col bg-white border border-hairline rounded-md p-5 lg:p-6 shadow-sm">
-              <span className="text-label-caps text-muted uppercase tracking-widest mb-1.5">Pricing</span>
-              <div className="text-display-md font-bold text-ink leading-tight mb-2">Zero Hidden Charges</div>
-              <p className="text-body-sm text-body-text leading-snug mt-auto">
-                Government fee and professional fee always shown separately, upfront.
-              </p>
-            </div>
-          </FadeUp>
-
+          <motion.div
+            className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-5"
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: '-50px' }}
+            variants={{
+              hidden: {},
+              visible: { transition: { staggerChildren: 0.15 } },
+            }}
+          >
+            {[
+              {
+                tag: 'Launch Offer',
+                title: 'Flat 20% Off',
+                desc: 'On your first document or registration with LegalX.',
+                bg: 'bg-surface-soft border border-hairline',
+                tagColor: 'text-muted',
+                titleColor: 'text-ink',
+                descColor: 'text-body-text',
+              },
+              {
+                tag: 'Professionals',
+                title: 'CA & Advocate Verified',
+                desc: 'Every document is prepared and signed off by a licensed professional, not a template bot.',
+                bg: 'bg-primary',
+                tagColor: 'text-white/75',
+                titleColor: 'text-white',
+                descColor: 'text-white/85',
+              },
+              {
+                tag: 'Turnaround',
+                title: '24–48 Hrs',
+                desc: 'Most drafts and filings are ready within a day of receiving your details.',
+                bg: 'bg-white border border-hairline',
+                tagColor: 'text-muted',
+                titleColor: 'text-ink',
+                descColor: 'text-body-text',
+              },
+              {
+                tag: 'Pricing',
+                title: 'Zero Hidden Charges',
+                desc: 'Government fee and professional fee always shown separately, upfront.',
+                bg: 'bg-white border border-hairline',
+                tagColor: 'text-muted',
+                titleColor: 'text-ink',
+                descColor: 'text-body-text',
+              },
+            ].map((card, i) => (
+              <motion.div
+                key={i}
+                variants={{
+                  hidden: { opacity: 0, y: 20 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5, ease: 'easeOut' } },
+                }}
+                className={`flex flex-col rounded-md p-5 lg:p-6 ${card.bg}`}
+              >
+                <span className={`text-label-caps uppercase tracking-widest mb-1.5 ${card.tagColor}`}>
+                  {card.tag}
+                </span>
+                <div className={`text-display-md font-bold leading-tight mb-2 ${card.titleColor}`}>
+                  {card.title}
+                </div>
+                <p className={`text-body-sm leading-snug mt-auto ${card.descColor}`}>
+                  {card.desc}
+                </p>
+              </motion.div>
+            ))}
+          </motion.div>
         </div>
       </div>
     </section>

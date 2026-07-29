@@ -40,11 +40,10 @@ export function Button({
 }: ButtonProps) {
   const classes = cn(
     'inline-flex items-center justify-center gap-2',
-    'rounded-sm font-semibold',
-    'transition-all duration-150 ease-out',
-    'active:scale-[0.98]',
+    'rounded font-semibold',
+    'transition-colors duration-150 ease-out',
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
-    'disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100',
+    'disabled:opacity-50 disabled:cursor-not-allowed',
     'select-none whitespace-nowrap',
     variantClasses[variant],
     sizeClasses[size],

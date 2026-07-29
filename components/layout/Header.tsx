@@ -82,23 +82,15 @@ export function Header() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'px-3 py-1.5 rounded-sm text-body-sm font-medium',
+                  'px-3 py-1.5 text-body-sm font-medium',
                   'transition-colors duration-150',
-                  'relative',
                   isActive(item.href)
-                    ? 'text-primary font-semibold'
-                    : 'text-body-text dark:text-slate-400 hover:text-ink dark:hover:text-white hover:bg-surface-soft dark:hover:bg-surface-soft-dark'
+                    ? 'text-ink dark:text-white font-semibold'
+                    : 'text-body-text dark:text-slate-400 hover:text-ink dark:hover:text-white'
                 )}
                 aria-current={isActive(item.href) ? 'page' : undefined}
               >
                 {item.label}
-                {/* Active underline */}
-                {isActive(item.href) && (
-                  <span
-                    className="absolute bottom-0 left-3 right-3 h-0.5 bg-primary rounded-full"
-                    aria-hidden
-                  />
-                )}
               </Link>
             ))}
           </nav>
@@ -122,7 +114,7 @@ export function Header() {
             {/* CTA button — desktop only */}
             <Button
               href="/documents"
-              variant="primary"
+              variant="secondary"
               size="sm"
               className="hidden lg:inline-flex"
             >

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { LegalDocument } from '@/lib/documents'
 import Link from 'next/link'
+import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
 
 // ── Document-type icons (SVG, inline) ────────────────────────────────────────
 function DocIcon({ iconKey }: { iconKey: string }) {
@@ -136,9 +137,9 @@ function DocHero({ doc }: { doc: LegalDocument }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
           {/* Left */}
-          <div>
+          <FadeUp>
             <span className="text-label-caps text-primary uppercase tracking-widest mb-3 block">
-              Legal Service
+              {doc.tag || 'Legal Service'}
             </span>
             <h1
               className="text-ink dark:text-white mb-4"
@@ -157,22 +158,22 @@ function DocHero({ doc }: { doc: LegalDocument }) {
                 </li>
               ))}
             </ul>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <Link
                 href={`/request/${doc.slug}`}
                 className="inline-flex items-center gap-2 bg-primary text-white font-semibold px-6 py-2.5 rounded-md hover:bg-primary-hover transition-colors duration-150 text-body-sm"
               >
-                Apply online
+                {doc.tagline || 'Apply online'}
               </Link>
               <div className="text-body-sm">
                 <span className="font-semibold text-ink dark:text-white">{doc.price}</span>
                 <span className="text-muted ml-1">· {doc.duration}</span>
               </div>
             </div>
-          </div>
+          </FadeUp>
 
           {/* Right — key points preview card */}
-          <div className="hidden lg:block">
+          <FadeUp delay={0.1} className="hidden lg:block">
             <div className="bg-surface-soft dark:bg-white/5 rounded-xl p-7 border border-hairline dark:border-white/10">
               <p className="text-label-caps text-muted uppercase tracking-widest mb-4">Key Details</p>
               <div className="space-y-3">
@@ -188,7 +189,7 @@ function DocHero({ doc }: { doc: LegalDocument }) {
                 <span className="font-semibold text-ink dark:text-white text-body-sm">{doc.estimatedTime}</span>
               </div>
             </div>
-          </div>
+          </FadeUp>
         </div>
       </div>
     </section>
@@ -198,7 +199,7 @@ function DocHero({ doc }: { doc: LegalDocument }) {
 function DocDefinition({ doc }: { doc: LegalDocument }) {
   return (
     <section className="py-14 bg-white dark:bg-[#0d0d0d]" aria-labelledby={`what-is-${doc.slug}`}>
-      <div className="max-w-3xl mx-auto px-5 md:px-16">
+      <FadeUp className="max-w-3xl mx-auto px-5 md:px-16">
         <h2
           id={`what-is-${doc.slug}`}
           className="text-ink dark:text-white mb-4 text-center"
@@ -212,18 +213,17 @@ function DocDefinition({ doc }: { doc: LegalDocument }) {
         <div className="border-l-4 border-primary pl-5 mt-6">
           <p className="text-body-sm text-body-text dark:text-slate-400 italic leading-relaxed">{doc.definitionQuote}</p>
         </div>
-      </div>
+      </FadeUp>
     </section>
   )
 }
 
-// ── NEW: Benefits section ─────────────────────────────────────────────────────
 function DocBenefits({ doc }: { doc: LegalDocument }) {
   return (
     <section className="py-16 bg-surface-soft dark:bg-[#111]" aria-labelledby={`benefits-${doc.slug}`}>
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
-        <div className="text-center mb-10">
-          <span className="text-label-caps text-primary uppercase tracking-widest">Why Register?</span>
+        <FadeUp className="text-center mb-10">
+          <span className="text-label-caps text-muted uppercase tracking-widest">Why {doc.slug.includes('filing') || doc.slug.includes('return') ? 'Subscribe?' : doc.slug.includes('drafting') ? 'Get It Drafted?' : doc.slug.includes('notice') ? 'Send a Notice?' : doc.slug.includes('dpiit') ? 'Apply?' : 'Register?'}</span>
           <h2
             id={`benefits-${doc.slug}`}
             className="text-ink dark:text-white mt-2"
@@ -231,28 +231,25 @@ function DocBenefits({ doc }: { doc: LegalDocument }) {
           >
             Benefits of {doc.title}
           </h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        </FadeUp>
+        <StaggerParent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {doc.benefits.map((benefit, i) => (
-            <div
+            <FadeUpChild
               key={i}
-              className="flex items-start gap-4 bg-white dark:bg-white/5 rounded-xl p-5 border border-hairline dark:border-white/10 hover:border-primary/30 transition-colors duration-200"
+              className="flex items-start gap-3 bg-white dark:bg-white/5 rounded-md p-5 border border-hairline dark:border-white/10"
             >
-              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
+              <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
               <p className="text-body-sm text-body-text dark:text-slate-300 leading-relaxed">{benefit}</p>
-            </div>
+            </FadeUpChild>
           ))}
-        </div>
+        </StaggerParent>
       </div>
     </section>
   )
 }
 
-// ── NEW: Required Documents — icon-above, name-below grid ────────────────────
 function DocRequiredDocs({ doc }: { doc: LegalDocument }) {
   const required = doc.requiredDocs.filter((d) => d.required)
   const optional = doc.requiredDocs.filter((d) => !d.required)
@@ -261,7 +258,7 @@ function DocRequiredDocs({ doc }: { doc: LegalDocument }) {
     <section className="py-16 bg-white dark:bg-[#0d0d0d]" aria-labelledby={`req-docs-${doc.slug}`}>
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
         {/* Section heading */}
-        <div className="text-center mb-3">
+        <FadeUp className="text-center mb-3">
           <span className="text-label-caps text-primary uppercase tracking-widest">Checklist</span>
           <h2
             id={`req-docs-${doc.slug}`}
@@ -272,25 +269,25 @@ function DocRequiredDocs({ doc }: { doc: LegalDocument }) {
           </h2>
           {/* Yellow underline accent */}
           <div className="w-16 h-1 bg-primary mx-auto mt-4 rounded-full" />
-        </div>
+        </FadeUp>
 
         {/* Required docs grid */}
-        <div className="mt-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-10">
+        <StaggerParent className="mt-12 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-6 gap-y-10">
           {required.map((d) => (
-            <div key={d.id} className="flex flex-col items-center text-center group">
+            <FadeUpChild key={d.id} className="flex flex-col items-center text-center group">
               {/* Icon container */}
               <div className="w-20 h-20 rounded-2xl bg-primary/8 dark:bg-primary/12 border border-primary/20 dark:border-primary/30 flex items-center justify-center mb-4 group-hover:bg-primary/15 transition-colors duration-200">
                 <DocIcon iconKey={d.iconKey} />
               </div>
               <p className="text-body-sm font-semibold text-ink dark:text-white leading-snug max-w-[140px]">{d.name}</p>
               <p className="text-[11px] text-muted mt-1">{d.acceptedFormats}</p>
-            </div>
+            </FadeUpChild>
           ))}
-        </div>
+        </StaggerParent>
 
         {/* Optional docs — smaller, secondary row */}
         {optional.length > 0 && (
-          <div className="mt-14 pt-10 border-t border-hairline dark:border-white/10">
+          <FadeUp delay={0.2} className="mt-14 pt-10 border-t border-hairline dark:border-white/10">
             <p className="text-label-caps text-muted uppercase tracking-widest text-center mb-8">
               Additional Documents (if applicable)
             </p>
@@ -305,7 +302,7 @@ function DocRequiredDocs({ doc }: { doc: LegalDocument }) {
                 </div>
               ))}
             </div>
-          </div>
+          </FadeUp>
         )}
       </div>
     </section>
@@ -316,21 +313,23 @@ function DocKeyPoints({ doc }: { doc: LegalDocument }) {
   return (
     <section className="py-14 bg-surface-soft dark:bg-[#111]" aria-labelledby={`included-${doc.slug}`}>
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
-        <h2
-          id={`included-${doc.slug}`}
-          className="text-ink dark:text-white mb-8"
-          style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, lineHeight: 1.2 }}
-        >
-          What&apos;s included
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <FadeUp>
+          <h2
+            id={`included-${doc.slug}`}
+            className="text-ink dark:text-white mb-8"
+            style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, lineHeight: 1.2 }}
+          >
+            What&apos;s included
+          </h2>
+        </FadeUp>
+        <StaggerParent className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {doc.keyPoints.map((point, i) => (
-            <div key={i} className="flex items-start gap-3 bg-white dark:bg-white/5 rounded-xl p-4 border border-hairline dark:border-white/10">
+            <FadeUpChild key={i} className="flex items-start gap-3 bg-white dark:bg-white/5 rounded-xl p-4 border border-hairline dark:border-white/10">
               <span className="text-[13px] font-bold text-primary w-5 flex-shrink-0">{i + 1}</span>
               <p className="text-body-sm text-body-text dark:text-slate-300 leading-snug">{point}</p>
-            </div>
+            </FadeUpChild>
           ))}
-        </div>
+        </StaggerParent>
       </div>
     </section>
   )
@@ -338,46 +337,48 @@ function DocKeyPoints({ doc }: { doc: LegalDocument }) {
 
 function DocSteps({ doc }: { doc: LegalDocument }) {
   const steps = [
-    { n: '1', title: 'Requirements', desc: 'Answer a short questionnaire about your specific needs.' },
-    { n: '2', title: 'Your Details', desc: 'Provide the names, addresses, and relevant party information.' },
-    { n: '3', title: 'Review', desc: 'Preview the draft before proceeding.' },
-    { n: '4', title: 'Payment', desc: `Pay securely. ${doc.price} — no hidden charges.` },
+    { n: '01', title: 'Requirements', desc: 'Answer a short questionnaire about your specific needs.' },
+    { n: '02', title: 'Your Details', desc: 'Provide the names, addresses, and relevant party information.' },
+    { n: '03', title: 'Review', desc: 'Preview the draft before proceeding.' },
+    { n: '04', title: 'Payment', desc: `Pay securely. ${doc.price} — no hidden charges.` },
   ]
   return (
     <section className="py-14 bg-white dark:bg-[#0d0d0d]" aria-labelledby={`steps-${doc.slug}`}>
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
-        <h2
-          id={`steps-${doc.slug}`}
-          className="text-ink dark:text-white mb-10"
-          style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, lineHeight: 1.2 }}
-        >
-          How it works
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
+        <FadeUp>
+          <h2
+            id={`steps-${doc.slug}`}
+            className="text-ink dark:text-white mb-10"
+            style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, lineHeight: 1.2 }}
+          >
+            How it works
+          </h2>
+        </FadeUp>
+        <StaggerParent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-0">
           {steps.map((s, i) => (
-            <div key={s.n} className="relative pr-6 pb-8 lg:pb-0">
+            <FadeUpChild key={s.n} className="relative pr-6 pb-8 lg:pb-0">
               {i < steps.length - 1 && (
                 <div
                   className="hidden lg:block absolute top-5 left-[calc(2.5rem+1px)] right-0 h-px bg-hairline dark:bg-white/10"
                   aria-hidden="true"
                 />
               )}
-              <div className="w-10 h-10 rounded-full border-2 border-primary flex items-center justify-center flex-shrink-0 bg-white dark:bg-[#0d0d0d] relative z-10 mb-4">
-                <span className="text-primary font-bold text-[15px]">{s.n}</span>
+              <div className="w-10 h-10 bg-surface-soft dark:bg-white/5 border border-hairline dark:border-white/10 flex items-center justify-center flex-shrink-0 bg-white dark:bg-[#0d0d0d] relative z-10 mb-4">
+                <span className="text-ink dark:text-white font-bold text-[15px]">{s.n}</span>
               </div>
               <h3 className="text-display-md text-ink dark:text-white mb-1">{s.title}</h3>
               <p className="text-body-sm text-body-text dark:text-slate-400 leading-relaxed">{s.desc}</p>
-            </div>
+            </FadeUpChild>
           ))}
-        </div>
-        <div className="mt-10">
+        </StaggerParent>
+        <FadeUp delay={0.2} className="mt-10 flex justify-center lg:justify-start">
           <Link
             href={`/request/${doc.slug}`}
             className="inline-flex items-center gap-2 bg-primary text-white font-semibold px-6 py-2.5 rounded-md hover:bg-primary-hover transition-colors duration-150 text-body-sm"
           >
-            Get started — {doc.price}
+            {doc.tagline || 'Get started'} — {doc.price}
           </Link>
-        </div>
+        </FadeUp>
       </div>
     </section>
   )
@@ -388,16 +389,18 @@ function DocFaq({ doc }: { doc: LegalDocument }) {
   return (
     <section className="py-14 bg-surface-soft dark:bg-[#111]" aria-labelledby={`faq-${doc.slug}`}>
       <div className="max-w-2xl mx-auto px-5 md:px-16">
-        <h2
-          id={`faq-${doc.slug}`}
-          className="text-ink dark:text-white mb-8 text-center"
-          style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, lineHeight: 1.2 }}
-        >
-          Frequently Asked Questions
-        </h2>
-        <div className="space-y-2">
+        <FadeUp>
+          <h2
+            id={`faq-${doc.slug}`}
+            className="text-ink dark:text-white mb-8 text-center"
+            style={{ fontSize: 'clamp(20px, 2.5vw, 28px)', fontWeight: 700, lineHeight: 1.2 }}
+          >
+            Frequently Asked Questions
+          </h2>
+        </FadeUp>
+        <StaggerParent className="space-y-2">
           {doc.faqs.map((faq, i) => (
-            <div key={i} className="bg-white dark:bg-white/5 rounded-xl overflow-hidden border border-hairline dark:border-white/10">
+            <FadeUpChild key={i} className="bg-white dark:bg-white/5 rounded-xl overflow-hidden border border-hairline dark:border-white/10">
               <button
                 className="w-full flex items-center justify-between px-5 py-4 text-body-sm font-medium text-ink dark:text-white text-left gap-3"
                 onClick={() => setOpen(open === i ? null : i)}
@@ -411,9 +414,9 @@ function DocFaq({ doc }: { doc: LegalDocument }) {
                   {faq.a}
                 </div>
               )}
-            </div>
+            </FadeUpChild>
           ))}
-        </div>
+        </StaggerParent>
       </div>
     </section>
   )

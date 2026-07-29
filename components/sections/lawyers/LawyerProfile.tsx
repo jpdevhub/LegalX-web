@@ -1,0 +1,513 @@
+'use client'
+
+import { useState } from 'react'
+import Link from 'next/link'
+import { getLawyer } from '@/lib/lawyers'
+import { notFound } from 'next/navigation'
+
+// ── Stars ─────────────────────────────────────────────────────────────────────
+function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
+  const cls = size === 'md' ? 'w-4.5 h-4.5' : 'w-3.5 h-3.5'
+  return (
+    <span className="flex items-center gap-0.5" aria-label={`${rating} out of 5`}>
+      {[1, 2, 3, 4, 5].map((s) => (
+        <svg
+          key={s}
+          className={`${cls} ${s <= Math.round(rating) ? 'text-primary' : 'text-hairline'}`}
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+      ))}
+    </span>
+  )
+}
+
+// ── Book from App modal ───────────────────────────────────────────────────────
+function BookFromAppModal({
+  open,
+  onClose,
+  consultType,
+  lawyerName,
+  fee,
+}: {
+  open: boolean
+  onClose: () => void
+  consultType: string
+  lawyerName: string
+  fee: number
+}) {
+  if (!open) return null
+
+  const icons = {
+    Chat: <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" strokeLinecap="round" strokeLinejoin="round" />,
+    'Voice Call': <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.82 19.79 19.79 0 01-.07 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" strokeLinecap="round" strokeLinejoin="round" />,
+    'Video Call': <path d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" strokeLinecap="round" strokeLinejoin="round" />,
+  } as Record<string, React.ReactNode>
+
+  return (
+    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-ink/60" onClick={onClose} aria-hidden />
+      <div className="relative bg-white dark:bg-surface-dark w-full sm:max-w-md rounded-t-md sm:rounded-md shadow-2xl z-10 overflow-hidden">
+        {/* Modal header */}
+        <div className="bg-ink px-6 pt-6 pb-8 text-center relative">
+          <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-md flex items-center justify-center mx-auto mb-4">
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              {icons[consultType]}
+            </svg>
+          </div>
+          <h2 className="text-white font-bold text-[18px] mb-0.5">{consultType} with {lawyerName}</h2>
+          <div className="mt-2 inline-flex items-center gap-1.5 bg-primary/20 border border-primary/30 text-primary px-3 py-1 rounded-sm text-body-sm font-semibold">
+            ₹{fee}/min
+          </div>
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors duration-150"
+            aria-label="Close"
+          >
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Modal body */}
+        <div className="px-6 py-6">
+          <div className="flex items-start gap-3 bg-surface-soft dark:bg-white/5 border border-hairline dark:border-hairline-dark rounded-md p-4 mb-5">
+            <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="5" y="2" width="14" height="20" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="18" x2="12.01" y2="18" strokeLinecap="round" />
+            </svg>
+            <div>
+              <p className="text-body-sm font-semibold text-ink dark:text-ink mb-1">Available on the LegalX App</p>
+              <p className="text-body-sm text-body-text dark:text-body-text leading-relaxed">
+                All lawyer consultations are booked and conducted through the LegalX mobile app. Payment is processed securely in-app, per minute.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5 mb-6">
+            {[
+              'Secure per-minute billing — no advance payment required',
+              'Real-time chat with document and photo sharing',
+              'HD voice and video calls with screen lock protection',
+              'Consultation notes and history saved in-app',
+            ].map((f) => (
+              <div key={f} className="flex items-start gap-2.5">
+                <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <p className="text-body-sm text-body-text dark:text-body-text">{f}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              {
+                label: 'App Store',
+                icon: 'M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z',
+              },
+              {
+                label: 'Google Play',
+                icon: 'M3.18 23.76c.3.17.64.24.99.19l12.48-12.48L13.2 8.03 3.18 23.76zm17.58-11.5L17.6 10.4l-3.33 3.33 3.33 3.33 3.2-1.86a1.5 1.5 0 000-2.94zM2.25 1.13l10.95 10.95L16.54 8.7 3.24.94a1.52 1.52 0 00-1-.19zm.93 1.75l10.04 17.4L9.56 12 3.18 2.88z',
+              },
+            ].map((app) => (
+              <div
+                key={app.label}
+                className="flex items-center gap-2 bg-ink text-white px-4 py-3 rounded-sm cursor-not-allowed opacity-70 select-none justify-center"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                  <path d={app.icon} />
+                </svg>
+                <div>
+                  <div className="text-[9px] opacity-60">Coming soon</div>
+                  <div className="text-[12px] font-semibold">{app.label}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Profile component ─────────────────────────────────────────────────────────
+export function LawyerProfile({ slug }: { slug: string }) {
+  const lawyer = getLawyer(slug)
+  if (!lawyer) notFound()
+
+  const [activeTab, setActiveTab] = useState<'about' | 'reviews' | 'education'>('about')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [consultType, setConsultType] = useState<'Chat' | 'Voice Call' | 'Video Call'>('Chat')
+  const [consultFee, setConsultFee] = useState(lawyer.fees.chat)
+
+  function openModal(type: 'Chat' | 'Voice Call' | 'Video Call', fee: number) {
+    setConsultType(type)
+    setConsultFee(fee)
+    setModalOpen(true)
+  }
+
+  const consultOptions = [
+    {
+      type: 'Chat' as const,
+      fee: lawyer.fees.chat,
+      desc: 'Text consultation',
+      iconPath: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z',
+    },
+    {
+      type: 'Voice Call' as const,
+      fee: lawyer.fees.voice,
+      desc: 'Phone consultation',
+      iconPath: 'M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.82 19.79 19.79 0 01-.07 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z',
+    },
+    {
+      type: 'Video Call' as const,
+      fee: lawyer.fees.video,
+      desc: 'Face-to-face',
+      iconPath: 'M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z',
+    },
+  ]
+
+  return (
+    <>
+      <BookFromAppModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        consultType={consultType}
+        lawyerName={lawyer.name}
+        fee={consultFee}
+      />
+
+      <main>
+        {/* Profile header */}
+        <section className="bg-white dark:bg-surface-dark border-b border-hairline dark:border-hairline-dark">
+          <div className="max-w-[1400px] mx-auto px-5 md:px-16">
+            {/* Breadcrumb */}
+            <nav className="text-label-caps text-muted flex items-center gap-2 pt-6 pb-0" aria-label="Breadcrumb">
+              <Link href="/" className="hover:text-primary transition-colors duration-150">Home</Link>
+              <span aria-hidden>/</span>
+              <Link href="/talk-to-lawyer" className="hover:text-primary transition-colors duration-150">Talk to a Lawyer</Link>
+              <span aria-hidden>/</span>
+              <span className="text-ink dark:text-ink truncate max-w-[140px]">{lawyer.name}</span>
+            </nav>
+
+            {/* Identity block */}
+            <div className="flex flex-col sm:flex-row items-start gap-5 py-7">
+              {/* Avatar */}
+              <div className="relative flex-shrink-0">
+                <div
+                  className="w-20 h-20 rounded-md flex items-center justify-center"
+                  style={{ backgroundColor: lawyer.avatarBg }}
+                >
+                  <span className="text-white font-bold text-2xl">{lawyer.initials}</span>
+                </div>
+                {lawyer.online && (
+                  <span className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-surface-dark rounded-full" />
+                )}
+              </div>
+
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <h1 className="text-ink dark:text-ink font-bold" style={{ fontSize: 'clamp(20px, 3vw, 28px)', lineHeight: 1.2 }}>
+                    {lawyer.name}
+                  </h1>
+                  {lawyer.verified && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-1.5 py-0.5 rounded-sm border border-green-200 dark:border-green-800">
+                      <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                        <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Verified
+                    </span>
+                  )}
+                  <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-sm border ${
+                    lawyer.online
+                      ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-800'
+                      : 'bg-surface-soft dark:bg-white/5 text-muted border-hairline dark:border-hairline-dark'
+                  }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${lawyer.online ? 'bg-green-500' : 'bg-gray-400'}`} />
+                    {lawyer.online ? 'Online now' : 'Currently offline'}
+                  </span>
+                </div>
+
+                <p className="text-primary font-semibold text-body-sm mb-2">{lawyer.primarySpec}</p>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-body-sm text-body-text dark:text-body-text mb-3">
+                  <span>{lawyer.location}</span>
+                  <span className="text-muted">·</span>
+                  <span>{lawyer.languages.join(', ')}</span>
+                  <span className="text-muted">·</span>
+                  <span>Bar No. {lawyer.barNumber}</span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Stars rating={lawyer.rating} />
+                    <span className="text-ink dark:text-ink font-bold text-body-sm">{lawyer.rating}</span>
+                    <span className="text-muted text-body-sm">({lawyer.reviewCount} reviews)</span>
+                  </div>
+                  <span className="text-body-sm text-body-text dark:text-body-text">{lawyer.casesHandled.toLocaleString()} cases · {lawyer.experience} yrs exp</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Consultation type row — 3 columns */}
+            <div className="grid grid-cols-3 border-t border-hairline dark:border-hairline-dark -mx-5 md:-mx-16">
+              {consultOptions.map((opt, i) => (
+                <button
+                  key={opt.type}
+                  onClick={() => openModal(opt.type, opt.fee)}
+                  className={`group flex flex-col items-center gap-1.5 py-4 px-3 hover:bg-surface-soft dark:hover:bg-white/5 transition-colors duration-150 ${i < 2 ? 'border-r border-hairline dark:border-hairline-dark' : ''}`}
+                >
+                  <svg className="w-5 h-5 text-muted group-hover:text-primary transition-colors duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="text-body-sm font-semibold text-ink dark:text-ink">{opt.type}</span>
+                  <span className="text-[11px] text-muted hidden sm:block">{opt.desc}</span>
+                  <span className="text-primary font-bold text-[12px]">₹{opt.fee}/min</span>
+                  <span className="text-[11px] text-primary group-hover:underline">Book via App →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* App notice */}
+        <div className="bg-primary/8 border-b border-primary/20">
+          <div className="max-w-[1400px] mx-auto px-5 md:px-16 py-3 flex items-center gap-2.5">
+            <svg className="w-4 h-4 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <rect x="5" y="2" width="14" height="20" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="12" y1="18" x2="12.01" y2="18" strokeLinecap="round" />
+            </svg>
+            <p className="text-body-sm text-ink dark:text-ink">
+              Consultations with <span className="font-semibold">{lawyer.name}</span> are booked through the <span className="font-semibold">LegalX mobile app</span> — coming soon.
+            </p>
+          </div>
+        </div>
+
+        {/* Profile body */}
+        <section className="py-8 bg-surface-soft dark:bg-surface-soft-dark">
+          <div className="max-w-[1400px] mx-auto px-5 md:px-16">
+            <div className="flex flex-col lg:flex-row gap-6">
+
+              {/* Content tabs */}
+              <div className="flex-1 min-w-0">
+                {/* Tab bar */}
+                <div className="flex border border-hairline dark:border-hairline-dark bg-white dark:bg-surface-dark rounded-md overflow-hidden mb-5">
+                  {(['about', 'reviews', 'education'] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 py-3 text-body-sm font-medium capitalize border-b-2 transition-colors duration-150 ${
+                        activeTab === tab
+                          ? 'border-primary text-primary bg-primary/5 dark:bg-primary/8'
+                          : 'border-transparent text-body-text dark:text-body-text hover:text-ink dark:hover:text-ink'
+                      }`}
+                    >
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+
+                {/* About */}
+                {activeTab === 'about' && (
+                  <div className="space-y-5">
+                    <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5">
+                      <h2 className="text-body-sm font-semibold text-ink dark:text-ink mb-3">About</h2>
+                      <p className="text-body-sm text-body-text dark:text-body-text leading-relaxed">{lawyer.bio}</p>
+                    </div>
+
+                    <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5">
+                      <h2 className="text-body-sm font-semibold text-ink dark:text-ink mb-3">Areas of Expertise</h2>
+                      <div className="flex flex-wrap gap-2">
+                        {lawyer.expertise.map((e) => (
+                          <span key={e} className="text-body-sm bg-primary/8 text-primary px-2.5 py-1 rounded-sm font-medium">
+                            {e}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5">
+                      <h2 className="text-body-sm font-semibold text-ink dark:text-ink mb-3">Achievements</h2>
+                      <div className="space-y-2">
+                        {lawyer.achievements.map((a) => (
+                          <div key={a} className="flex items-start gap-2.5">
+                            <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            <p className="text-body-sm text-body-text dark:text-body-text">{a}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Reviews */}
+                {activeTab === 'reviews' && (
+                  <div className="space-y-4">
+                    <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5 flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                      <div className="text-center">
+                        <div className="text-[44px] font-bold text-ink dark:text-ink leading-none">{lawyer.rating}</div>
+                        <Stars rating={lawyer.rating} />
+                        <div className="text-body-sm text-muted mt-1">{lawyer.reviewCount} reviews</div>
+                      </div>
+                      <div className="flex-1 w-full">
+                        {[5, 4, 3, 2, 1].map((star) => {
+                          const count = lawyer.reviews.filter((r) => Math.round(r.rating) === star).length
+                          const pct = lawyer.reviews.length ? Math.round((count / lawyer.reviews.length) * 100) : 0
+                          return (
+                            <div key={star} className="flex items-center gap-2 mb-1">
+                              <span className="text-[11px] text-muted w-2.5 text-right">{star}</span>
+                              <svg className="w-3 h-3 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                              </svg>
+                              <div className="flex-1 bg-surface-soft dark:bg-white/5 border border-hairline dark:border-hairline-dark rounded-full h-1.5">
+                                <div className="bg-primary h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="text-[11px] text-muted w-7">{pct}%</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    {lawyer.reviews.map((review, i) => (
+                      <div key={i} className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5">
+                        <div className="flex items-start justify-between gap-3 mb-2">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-sm bg-surface-soft dark:bg-white/5 border border-hairline dark:border-hairline-dark flex items-center justify-center text-[12px] font-semibold text-ink dark:text-ink">
+                              {review.author[0]}
+                            </div>
+                            <div>
+                              <div className="text-body-sm font-semibold text-ink dark:text-ink">{review.author}</div>
+                              <div className="text-[11px] text-muted">
+                                {new Date(review.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              </div>
+                            </div>
+                          </div>
+                          <Stars rating={review.rating} />
+                        </div>
+                        <p className="text-body-sm text-body-text dark:text-body-text leading-relaxed">&ldquo;{review.text}&rdquo;</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Education */}
+                {activeTab === 'education' && (
+                  <div className="space-y-4">
+                    {lawyer.education.map((edu, i) => (
+                      <div key={i} className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5 flex items-start gap-4">
+                        <div className="w-9 h-9 bg-primary/8 rounded-sm flex items-center justify-center flex-shrink-0">
+                          <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                            <path d="M22 10v6M2 10l10-5 10 5-10 5z" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M6 12v5c3 3 9 3 12 0v-5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                        <div>
+                          <h3 className="text-body-sm font-semibold text-ink dark:text-ink">{edu.degree}</h3>
+                          <p className="text-body-sm text-body-text dark:text-body-text mt-0.5">{edu.institution}</p>
+                          <p className="text-[12px] text-muted mt-1">Graduated {edu.year}</p>
+                        </div>
+                      </div>
+                    ))}
+
+                    <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5 flex items-start gap-4">
+                      <div className="w-9 h-9 bg-green-50 dark:bg-green-900/20 rounded-sm flex items-center justify-center flex-shrink-0">
+                        <svg className="w-4 h-4 text-green-700 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-body-sm font-semibold text-ink dark:text-ink">Bar Council Registration</h3>
+                        <p className="text-body-sm text-body-text dark:text-body-text mt-0.5">Enrollment No. {lawyer.barNumber}</p>
+                        <p className="text-[12px] text-green-700 dark:text-green-400 font-medium mt-1">Verified by LegalX</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Sticky sidebar — desktop only */}
+              <div className="hidden lg:block w-64 flex-shrink-0">
+                <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md overflow-hidden sticky top-20">
+                  <div className="px-5 pt-5 pb-4 border-b border-hairline dark:border-hairline-dark">
+                    <h2 className="text-body-sm font-semibold text-ink dark:text-ink">Book a Consultation</h2>
+                    <p className="text-[12px] text-muted mt-0.5">Select a consultation type</p>
+                  </div>
+
+                  <div className="p-4 space-y-2.5">
+                    {consultOptions.map((opt) => (
+                      <button
+                        key={opt.type}
+                        onClick={() => openModal(opt.type, opt.fee)}
+                        className="w-full flex items-center gap-3 border border-hairline dark:border-hairline-dark rounded-sm px-3 py-2.5 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/8 transition-colors duration-150 group text-left"
+                      >
+                        <svg className="w-4 h-4 text-muted group-hover:text-primary transition-colors duration-150 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-body-sm font-semibold text-ink dark:text-ink">{opt.type}</div>
+                          <div className="text-[11px] text-muted">{opt.desc}</div>
+                        </div>
+                        <span className="text-primary font-bold text-[12px]">₹{opt.fee}/min</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="px-4 pb-4">
+                    <div className="bg-surface-soft dark:bg-white/5 border border-hairline dark:border-hairline-dark rounded-sm p-3 text-center">
+                      <p className="text-[11px] text-muted leading-snug">
+                        Booked &amp; conducted through the{' '}
+                        <span className="font-semibold text-ink dark:text-ink">LegalX app</span>. Coming soon.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border-t border-hairline dark:border-hairline-dark px-4 py-3">
+                    <Link
+                      href="/talk-to-lawyer"
+                      className="flex items-center justify-center gap-1 text-body-sm font-medium text-primary hover:underline"
+                    >
+                      ← All lawyers
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile CTA — fixed bottom bar */}
+            <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-surface-dark border-t border-hairline dark:border-hairline-dark px-4 py-3 flex items-center gap-3">
+              {consultOptions.map((opt) => (
+                <button
+                  key={opt.type}
+                  onClick={() => openModal(opt.type, opt.fee)}
+                  className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-sm border transition-colors duration-150 ${
+                    opt.type === 'Chat'
+                      ? 'bg-primary border-primary text-white'
+                      : 'border-hairline dark:border-hairline-dark text-body-text dark:text-body-text hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  <span className="text-[10px] font-semibold">{opt.type}</span>
+                  <span className="text-[10px] opacity-80">₹{opt.fee}/min</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Bottom padding for mobile fixed bar */}
+            <div className="h-20 lg:hidden" aria-hidden />
+          </div>
+        </section>
+      </main>
+    </>
+  )
+}

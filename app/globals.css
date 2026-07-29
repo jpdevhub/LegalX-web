@@ -36,8 +36,8 @@
   --color-error: #ba1a1a;
 
   /* Border radius */
-  --radius-sm: 8px;
-  --radius-md: 14px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-full: 9999px;
 
   /* Shadows */
@@ -48,17 +48,14 @@
   /* Font sizes with line-heights */
   --text-display-xl: 32px;
   --text-display-xl--line-height: 40px;
-  --text-display-xl--letter-spacing: -0.02em;
   --text-display-xl--font-weight: 700;
 
   --text-display-lg: 24px;
   --text-display-lg--line-height: 32px;
-  --text-display-lg--letter-spacing: -0.01em;
   --text-display-lg--font-weight: 600;
 
   --text-display-md: 20px;
   --text-display-md--line-height: 28px;
-  --text-display-md--letter-spacing: -0.01em;
   --text-display-md--font-weight: 600;
 
   --text-body-md: 16px;
@@ -69,49 +66,24 @@
   --text-body-sm--line-height: 20px;
   --text-body-sm--font-weight: 400;
 
-  --text-label-caps: 12px;
+  --text-label-caps: 11px;
   --text-label-caps--line-height: 16px;
-  --text-label-caps--letter-spacing: 0.05em;
+  --text-label-caps--letter-spacing: 0.08em;
   --text-label-caps--font-weight: 600;
 
-  /* Animations */
-  --animate-fade-up: fadeUp 0.5s ease-out forwards;
-  --animate-slide-in: slideIn 0.3s ease-out forwards;
-  --animate-check-draw: checkDraw 0.4s ease-out forwards;
+  /* Animations — only used by drawer and form feedback */
+  --animate-slide-in: slideIn 0.25s ease-out forwards;
+  --animate-check-draw: checkDraw 0.3s ease-out forwards;
   --animate-spin-slow: spin 2s linear infinite;
 
-  @keyframes fadeUp {
-    0% {
-      opacity: 0;
-      transform: translateY(16px);
-    }
-
-    100% {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
   @keyframes slideIn {
-    0% {
-      transform: translateX(100%);
-    }
-
-    100% {
-      transform: translateX(0);
-    }
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(0); }
   }
 
   @keyframes checkDraw {
-    0% {
-      opacity: 0;
-      transform: scale(0.5);
-    }
-
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
+    0% { opacity: 0; transform: scale(0.5); }
+    100% { opacity: 1; transform: scale(1); }
   }
 }
 
@@ -166,62 +138,16 @@
    Utilities
    =================================================== */
 @layer utilities {
-  .animate-on-scroll {
-    opacity: 0;
-    transform: translateY(16px);
-    transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-  }
-
-  .animate-on-scroll.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  .card-hover {
-    transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
-  }
-
-  .card-hover:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-card-hover);
-  }
-
   .header-scrolled {
     box-shadow: var(--shadow-header);
   }
 
   .drawer-overlay {
-    background-color: rgba(0, 0, 0, 0.4);
-    backdrop-filter: blur(2px);
+    background-color: rgba(0, 0, 0, 0.45);
   }
 
   .text-balance {
     text-wrap: balance;
-  }
-
-  /* Stagger transition delays */
-  .stagger-1 {
-    transition-delay: 0ms;
-  }
-
-  .stagger-2 {
-    transition-delay: 80ms;
-  }
-
-  .stagger-3 {
-    transition-delay: 160ms;
-  }
-
-  .stagger-4 {
-    transition-delay: 240ms;
-  }
-
-  .stagger-5 {
-    transition-delay: 320ms;
-  }
-
-  .stagger-6 {
-    transition-delay: 400ms;
   }
 
 

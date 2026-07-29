@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Input, Textarea, Select } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
+import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
 
 const OFFICE_DETAILS = [
   {
@@ -65,14 +66,14 @@ export function ContactPage() {
     <>
       {/* Hero */}
       <section className="bg-white dark:bg-surface-dark py-16 md:py-20 border-b border-hairline dark:border-hairline-dark">
-        <div className="max-w-[1400px] mx-auto px-5 md:px-16">
+        <FadeUp className="max-w-[1400px] mx-auto px-5 md:px-16">
           <h1 className="text-ink dark:text-white text-balance" style={{ fontSize: 'clamp(28px, 4.5vw, 44px)', fontWeight: 700, lineHeight: 1.15 }}>
             Contact Our Legal Experts
           </h1>
           <p className="text-body-md text-body-text dark:text-slate-400 max-w-2xl mt-4 leading-relaxed">
             Get in touch with the LegalX team for personalized consultations, document reviews, or business law inquiries. We're here to provide clarity in your legal journey.
           </p>
-        </div>
+        </FadeUp>
       </section>
 
       {/* Main contact grid */}
@@ -81,13 +82,13 @@ export function ContactPage() {
           {/* Two equal columns — office details left, form right */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
             {/* Left: office details + map */}
-            <div>
+            <FadeUp>
               <h2 className="text-display-lg text-primary mb-8">Office Details</h2>
 
               {/* Office detail rows — all same left edge, 16px row spacing */}
-              <div className="space-y-6">
+              <StaggerParent className="space-y-6">
                 {OFFICE_DETAILS.map((detail) => (
-                  <div key={detail.label} className="flex items-start gap-4">
+                  <FadeUpChild key={detail.label} className="flex items-start gap-4">
                     {/* Icon box — consistent w-12 h-12 */}
                     <div className="w-12 h-12 flex items-center justify-center bg-surface-soft dark:bg-surface-soft-dark border border-hairline dark:border-hairline-dark rounded-sm flex-shrink-0">
                       {detail.icon}
@@ -102,9 +103,9 @@ export function ContactPage() {
                         </p>
                       ))}
                     </div>
-                  </div>
+                  </FadeUpChild>
                 ))}
-              </div>
+              </StaggerParent>
 
               {/* Map placeholder — 24px gap, consistent width */}
               <div className="mt-6 rounded-md overflow-hidden border border-hairline dark:border-hairline-dark h-52 bg-surface-soft dark:bg-surface-soft-dark flex items-center justify-center">
@@ -117,10 +118,10 @@ export function ContactPage() {
                   <p className="text-label-caps mt-1 text-muted/60">Map integration available on request</p>
                 </div>
               </div>
-            </div>
+            </FadeUp>
 
             {/* Right: inquiry form */}
-            <div>
+            <FadeUp delay={0.1}>
               <h2 className="text-display-lg text-primary mb-8">Inquiry Form</h2>
 
               {formState === 'success' ? (
@@ -209,14 +210,14 @@ export function ContactPage() {
                   </p>
                 </form>
               )}
-            </div>
+            </FadeUp>
           </div>
         </div>
       </section>
 
       {/* LegalChat band — vertically centered, equal padding */}
       <section className="bg-surface-soft dark:bg-surface-soft-dark border-t border-hairline dark:border-hairline-dark py-10 md:py-12">
-        <div className="max-w-[1400px] mx-auto px-5 md:px-16">
+        <FadeUp className="max-w-[1400px] mx-auto px-5 md:px-16">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="text-center md:text-left">
               <h2 className="text-display-md text-ink dark:text-white">
@@ -233,7 +234,7 @@ export function ContactPage() {
               Launch LegalChat
             </Button>
           </div>
-        </div>
+        </FadeUp>
       </section>
     </>
   )
