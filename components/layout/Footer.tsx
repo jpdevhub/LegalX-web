@@ -141,9 +141,9 @@ export function Footer() {
           {/* Social icons */}
           <div className="flex items-center gap-3" aria-label="Social media links">
             {[
-              { label: 'LinkedIn', href: '#', icon: <LinkedInIcon className="w-4 h-4" /> },
-              { label: 'Twitter / X', href: '#', icon: <XIcon className="w-4 h-4" /> },
-              { label: 'Instagram', href: '#', icon: <InstagramIcon className="w-4 h-4" /> },
+              { label: 'LinkedIn', href: 'https://www.linkedin.com/company/legalx-online/', icon: <LinkedInIcon className="w-4 h-4" /> },
+              { label: 'Instagram', href: 'https://www.instagram.com/legalxonline.official?igsh=NzB3aTJwOW11cDI2', icon: <InstagramIcon className="w-4 h-4" /> },
+              { label: 'YouTube', href: 'https://youtube.com/@legalxonline?si=IXHjbnkBhzY0xu7l', icon: <YouTubeIcon className="w-4 h-4" /> },
             ].map(({ label, href, icon }) => (
               <a
                 key={label}
@@ -229,6 +229,13 @@ function InstagramIcon({ className }: { className?: string }) {
       <rect x="2" y="2" width="20" height="20" rx="5" ry="5" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" strokeLinecap="round" strokeLinejoin="round" />
       <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+function YouTubeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M21.58 7.19c-.23-.86-.91-1.54-1.77-1.77C18.25 5 12 5 12 5s-6.25 0-7.81.42c-.86.23-1.54.91-1.77 1.77C2 8.75 2 12 2 12s0 3.25.42 4.81c.23.86.91 1.54 1.77 1.77C5.75 19 12 19 12 19s6.25 0 7.81-.42c.86-.23 1.54-.91 1.77-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81zM9.75 15.02V8.98L15.5 12l-5.75 3.02z" />
     </svg>
   )
 }
