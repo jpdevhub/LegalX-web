@@ -6,7 +6,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
   img-src 'self' data: https: blob:;
-  connect-src 'self' http://localhost:4000 https://api.razorpay.com https://*.supabase.co https://*.resend.com wss://*.supabase.co;
+  connect-src 'self' http://localhost:4000 https://legalx-backend-gl4b.onrender.com https://api.razorpay.com https://*.supabase.co https://*.resend.com wss://*.supabase.co;
   frame-src 'self' https://api.razorpay.com https://js.stripe.com;
   frame-ancestors 'none';
   base-uri 'self';
