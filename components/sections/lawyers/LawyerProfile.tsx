@@ -2,8 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { getLawyer } from '@/lib/lawyers'
-import { notFound } from 'next/navigation'
+import { Lawyer } from '@/lib/lawyers'
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
@@ -54,7 +53,7 @@ function BookFromAppModal({
         {/* Modal header */}
         <div className="bg-ink px-6 pt-6 pb-8 text-center relative">
           <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-md flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
               {icons[consultType]}
             </svg>
           </div>
@@ -67,7 +66,7 @@ function BookFromAppModal({
             className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors duration-150"
             aria-label="Close"
           >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
               <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
             </svg>
           </button>
@@ -76,7 +75,7 @@ function BookFromAppModal({
         {/* Modal body */}
         <div className="px-6 py-6">
           <div className="flex items-start gap-3 bg-surface-soft dark:bg-white/5 border border-hairline dark:border-hairline-dark rounded-md p-4 mb-5">
-            <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <svg className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
               <rect x="5" y="2" width="14" height="20" rx="2" strokeLinecap="round" strokeLinejoin="round" />
               <line x1="12" y1="18" x2="12.01" y2="18" strokeLinecap="round" />
             </svg>
@@ -96,7 +95,7 @@ function BookFromAppModal({
               'Consultation notes and history saved in-app',
             ].map((f) => (
               <div key={f} className="flex items-start gap-2.5">
-                <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden suppressHydrationWarning>
                   <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <p className="text-body-sm text-body-text dark:text-body-text">{f}</p>
@@ -136,9 +135,7 @@ function BookFromAppModal({
 }
 
 // ── Profile component ─────────────────────────────────────────────────────────
-export function LawyerProfile({ slug }: { slug: string }) {
-  const lawyer = getLawyer(slug)
-  if (!lawyer) notFound()
+export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
 
   const [activeTab, setActiveTab] = useState<'about' | 'reviews' | 'education'>('about')
   const [modalOpen, setModalOpen] = useState(false)
@@ -263,7 +260,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
                   onClick={() => openModal(opt.type, opt.fee)}
                   className={`group flex flex-col items-center gap-1.5 py-4 px-3 hover:bg-surface-soft dark:hover:bg-white/5 transition-colors duration-150 ${i < 2 ? 'border-r border-hairline dark:border-hairline-dark' : ''}`}
                 >
-                  <svg className="w-5 h-5 text-muted group-hover:text-primary transition-colors duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <svg className="w-5 h-5 text-muted group-hover:text-primary transition-colors duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
                     <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="text-body-sm font-semibold text-ink dark:text-ink">{opt.type}</span>
@@ -279,7 +276,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
         {/* App notice */}
         <div className="bg-primary/8 border-b border-primary/20">
           <div className="max-w-[1400px] mx-auto px-5 md:px-16 py-3 flex items-center gap-2.5">
-            <svg className="w-4 h-4 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+            <svg className="w-4 h-4 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
               <rect x="5" y="2" width="14" height="20" rx="2" strokeLinecap="round" strokeLinejoin="round" />
               <line x1="12" y1="18" x2="12.01" y2="18" strokeLinecap="round" />
             </svg>
@@ -337,7 +334,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
                       <div className="space-y-2">
                         {lawyer.achievements.map((a) => (
                           <div key={a} className="flex items-start gap-2.5">
-                            <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                            <svg className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden suppressHydrationWarning>
                               <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                             <p className="text-body-sm text-body-text dark:text-body-text">{a}</p>
@@ -405,7 +402,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
                     {lawyer.education.map((edu, i) => (
                       <div key={i} className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5 flex items-start gap-4">
                         <div className="w-9 h-9 bg-primary/8 rounded-sm flex items-center justify-center flex-shrink-0">
-                          <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                          <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
                             <path d="M22 10v6M2 10l10-5 10 5-10 5z" strokeLinecap="round" strokeLinejoin="round" />
                             <path d="M6 12v5c3 3 9 3 12 0v-5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
@@ -420,7 +417,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
 
                     <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-5 flex items-start gap-4">
                       <div className="w-9 h-9 bg-green-50 dark:bg-green-900/20 rounded-sm flex items-center justify-center flex-shrink-0">
-                        <svg className="w-4 h-4 text-green-700 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <svg className="w-4 h-4 text-green-700 dark:text-green-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
                           <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </div>
@@ -449,7 +446,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
                         onClick={() => openModal(opt.type, opt.fee)}
                         className="w-full flex items-center gap-3 border border-hairline dark:border-hairline-dark rounded-sm px-3 py-2.5 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/8 transition-colors duration-150 group text-left"
                       >
-                        <svg className="w-4 h-4 text-muted group-hover:text-primary transition-colors duration-150 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <svg className="w-4 h-4 text-muted group-hover:text-primary transition-colors duration-150 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
                           <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                         <div className="flex-1 min-w-0">
@@ -494,7 +491,7 @@ export function LawyerProfile({ slug }: { slug: string }) {
                       : 'border-hairline dark:border-hairline-dark text-body-text dark:text-body-text hover:border-primary hover:text-primary'
                   }`}
                 >
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
                     <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                   <span className="text-[10px] font-semibold">{opt.type}</span>
