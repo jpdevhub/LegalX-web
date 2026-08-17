@@ -7,18 +7,38 @@
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+const CSRF_COOKIE_NAME = 'csrf_token'
+const CSRF_HEADER_NAME = 'x-csrf-token'
 
-type FetchOptions = RequestInit & { skipCredentials?: boolean }
+function getCsrfToken(): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  const match = document.cookie.match(new RegExp(`(^| )${CSRF_COOKIE_NAME}=([^;]+)`))
+  return match ? decodeURIComponent(match[2]) : undefined
+}
+
+type FetchOptions = RequestInit & { skipCredentials?: boolean; skipCsrf?: boolean }
 
 async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
-  const { skipCredentials, ...fetchOpts } = options
+  const { skipCredentials, skipCsrf, ...fetchOpts } = options
+  const isMutation = ['POST', 'PATCH', 'PUT', 'DELETE'].includes((fetchOpts.method || 'GET').toUpperCase())
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(fetchOpts.headers as Record<string, string> || {}),
+  }
+
+  // Add CSRF token for mutations
+  if (isMutation && !skipCsrf) {
+    const csrfToken = getCsrfToken()
+    if (csrfToken) {
+      headers[CSRF_HEADER_NAME] = csrfToken
+    }
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...fetchOpts,
     credentials: skipCredentials ? 'omit' : 'include', // sends HttpOnly cookies
-    headers: {
-      'Content-Type': 'application/json',
-      ...fetchOpts.headers,
-    },
+    headers,
   })
 
   if (!res.ok) {
