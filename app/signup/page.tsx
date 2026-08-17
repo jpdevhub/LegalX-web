@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -16,6 +16,8 @@ export default function SignupPage() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const router = useRouter()
+  const mountedRef = useRef(true)
+  useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,8 +27,10 @@ export default function SignupPage() {
       await apiSignup({ email, password, firstName, lastName, role })
       router.push('/login?message=Account created! A confirmation email has been sent — please verify, then sign in.')
     } catch (err: any) {
-      setError(err.message || 'Sign up failed. Please try again.')
-      setLoading(false)
+      if (mountedRef.current) {
+        setError(err.message || 'Sign up failed. Please try again.')
+        setLoading(false)
+      }
     }
   }
 
