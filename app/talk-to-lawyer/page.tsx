@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
-import { LAWYERS, SPECIALIZATIONS } from '@/lib/lawyers'
+import { getLawyers, SPECIALIZATIONS, Lawyer } from '@/lib/lawyers'
 import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -25,7 +25,7 @@ function Stars({ rating }: { rating: number }) {
 }
 
 // ── Lawyer card ───────────────────────────────────────────────────────────────
-function LawyerCard({ lawyer }: { lawyer: (typeof LAWYERS)[0] }) {
+function LawyerCard({ lawyer }: { lawyer: Lawyer }) {
   return (
     <Link
       href={`/talk-to-lawyer/${lawyer.slug}`}
@@ -201,20 +201,31 @@ function FilterPanel({
 
 // ── Main listing page ─────────────────────────────────────────────────────────
 export default function TalkToLawyerPage() {
+  const [lawyers, setLawyers] = useState<Lawyer[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedSpec, setSelectedSpec] = useState('All')
   const [onlineOnly, setOnlineOnly] = useState(false)
   const [sortBy, setSortBy] = useState<'rating' | 'experience' | 'fee-low'>('rating')
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
+  useEffect(() => {
+    async function loadLawyers() {
+      const data = await getLawyers()
+      setLawyers(data)
+      setIsLoading(false)
+    }
+    loadLawyers()
+  }, [])
+
   const filtered = useMemo(() => {
-    let list = [...LAWYERS]
+    let list = [...lawyers]
     if (selectedSpec !== 'All') list = list.filter((l) => l.specializations.some((s) => s === selectedSpec) || l.primarySpec === selectedSpec)
     if (onlineOnly) list = list.filter((l) => l.online)
     if (sortBy === 'rating') list.sort((a, b) => b.rating - a.rating)
     else if (sortBy === 'experience') list.sort((a, b) => b.experience - a.experience)
     else list.sort((a, b) => a.fees.chat - b.fees.chat)
     return list
-  }, [selectedSpec, onlineOnly, sortBy])
+  }, [lawyers, selectedSpec, onlineOnly, sortBy])
 
   function clearFilters() {
     setSelectedSpec('All')
@@ -374,12 +385,16 @@ export default function TalkToLawyerPage() {
               {/* Desktop result count */}
               <div className="hidden lg:flex items-center justify-between mb-5">
                 <p className="text-body-sm text-body-text dark:text-body-text">
-                  <span className="font-semibold text-ink dark:text-ink">{filtered.length}</span> lawyers found
+                  <span className="font-semibold text-ink dark:text-ink">{isLoading ? '-' : filtered.length}</span> lawyers found
                   {selectedSpec !== 'All' && <span> in <span className="font-medium text-primary">{selectedSpec}</span></span>}
                 </p>
               </div>
 
-              {filtered.length === 0 ? (
+              {isLoading ? (
+                <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-12 text-center animate-pulse">
+                  <p className="text-body-md text-muted">Loading available lawyers...</p>
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-12 text-center">
                   <p className="text-body-md text-muted">No lawyers match your filters.</p>
                   <button onClick={clearFilters} className="mt-3 text-body-sm font-semibold text-primary hover:underline">
