@@ -290,28 +290,45 @@ function StepPayment({ doc, applicationId, leadId, onSuccess }: { doc: LegalDocu
   const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
 
+  /** Lazily inject the Razorpay SDK script — only loads when payment step mounts. */
+  function loadRazorpayScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if ((window as any).Razorpay) return resolve() // already loaded
+      const script = document.createElement('script')
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      script.onload  = () => resolve()
+      script.onerror = () => reject(new Error('Failed to load Razorpay SDK'))
+      document.head.appendChild(script)
+    })
+  }
+
   async function handlePay() {
     setError('')
     setPaying(true)
     try {
       const backend = process.env.NEXT_PUBLIC_BACKEND_URL
+
+      // Load Razorpay SDK only when user clicks Pay — no global script in layout
+      await loadRazorpayScript()
+
       // Get amount in paise from doc pricing
       const amountStr = doc.pricing.total.replace(/[^\d]/g, '')
-      const amountPaise = parseInt(amountStr) * 100
+      const amountPaise = parseInt(amountStr, 10) * 100
 
-      // 1. Create Razorpay order
+      // 1. Create Razorpay order via backend — key_id is returned from server, never in env
       const orderRes = await fetch(`${backend}/api/payment/create-order`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ applicationId, leadId, serviceSlug: doc.slug, amount: amountPaise }),
       })
       const order = await orderRes.json()
       if (!orderRes.ok) throw new Error(order.error || 'Could not create payment order')
 
-      // 2. Open Razorpay checkout
+      // 2. Open Razorpay checkout — key comes from backend, never from frontend env
       const leadName = sessionStorage.getItem('lx_lead_name') || ''
 
-      // @ts-expect-error Razorpay is loaded via CDN script
+      // @ts-expect-error Razorpay loaded via dynamic script above
       const rzp = new window.Razorpay({
         key: order.keyId,
         amount: order.amount,
@@ -385,7 +402,7 @@ function StepPayment({ doc, applicationId, leadId, onSuccess }: { doc: LegalDocu
         disabled={paying}
         className="inline-flex items-center gap-2 bg-primary text-white font-semibold px-8 py-3.5 rounded-md hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-body-sm"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" suppressHydrationWarning>
           <rect x="1" y="4" width="22" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
           <line x1="1" y1="10" x2="23" y2="10" strokeLinecap="round" />
         </svg>
@@ -401,7 +418,7 @@ function StepSuccess({ doc }: { doc: LegalDocument }) {
   return (
     <div className="text-center py-12">
       <div className="w-16 h-16 rounded-full bg-primary/15 border-2 border-primary flex items-center justify-center mx-auto mb-5">
-        <svg className="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg className="w-8 h-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" suppressHydrationWarning>
           <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
@@ -452,7 +469,7 @@ function CostSidebar({ doc }: { doc: LegalDocument }) {
       <div className="mt-5 pt-4 border-t border-hairline dark:border-white/10 space-y-2">
         {['Expert-reviewed process', 'Govt. registered agent', 'Full support included'].map((t) => (
           <div key={t} className="flex items-center gap-2 text-[12px] text-body-text dark:text-slate-400">
-            <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" suppressHydrationWarning>
               <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             {t}
@@ -617,14 +634,14 @@ export function DocumentRequestFlow({ doc }: { doc: LegalDocument }) {
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 function CheckSm() {
-  return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  return <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" suppressHydrationWarning><path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
 function FileIcon() {
-  return <svg className="w-5 h-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" /><polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  return <svg className="w-5 h-5 text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" /><polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
 function UploadIcon() {
-  return <svg className="w-6 h-6 text-muted mx-auto mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round" strokeLinejoin="round" /><polyline points="17,8 12,3 7,8" strokeLinecap="round" strokeLinejoin="round" /><line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" /></svg>
+  return <svg className="w-6 h-6 text-muted mx-auto mb-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" strokeLinecap="round" strokeLinejoin="round" /><polyline points="17,8 12,3 7,8" strokeLinecap="round" strokeLinejoin="round" /><line x1="12" y1="3" x2="12" y2="15" strokeLinecap="round" /></svg>
 }
 function PdfIcon() {
-  return <svg className="w-8 h-8 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" /><polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+  return <svg className="w-8 h-8 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" strokeLinecap="round" strokeLinejoin="round" /><polyline points="14,2 14,8 20,8" strokeLinecap="round" strokeLinejoin="round" /></svg>
 }
