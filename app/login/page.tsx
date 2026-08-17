@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -17,6 +17,8 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const redirectTo   = searchParams.get('redirect_to') || '/'
   const message      = searchParams.get('message')
+  const mountedRef   = useRef(true)
+  useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -28,8 +30,10 @@ function LoginForm() {
       router.push(user.role === 'admin' ? '/admin' : redirectTo)
       router.refresh()
     } catch (err: any) {
-      setError(err.message || 'Invalid email or password. Please try again.')
-      setLoading(false)
+      if (mountedRef.current) {
+        setError(err.message || 'Invalid email or password. Please try again.')
+        setLoading(false)
+      }
     }
   }
 
