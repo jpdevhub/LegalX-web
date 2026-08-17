@@ -1,19 +1,58 @@
 /**
  * LegalX API Client
  * 
- * All data fetching goes through the Express backend.
+ * All data fetching goes through the Next.js proxy (rewrites in next.config.ts)
+ * which forwards to the Express backend. This makes cookies work cross-origin.
  * No Supabase keys, anon keys, or service role keys exist in this file.
  * Authentication tokens live exclusively in HttpOnly cookies managed by the backend.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
 const CSRF_COOKIE_NAME = 'csrf_token'
 const CSRF_HEADER_NAME = 'x-csrf-token'
+
+let csrfPromise: Promise<string | undefined> | null = null
 
 function getCsrfToken(): string | undefined {
   if (typeof document === 'undefined') return undefined
   const match = document.cookie.match(new RegExp(`(^| )${CSRF_COOKIE_NAME}=([^;]+)`))
   return match ? decodeURIComponent(match[2]) : undefined
+}
+
+// Determine base URL for fetch (relative in browser, absolute in SSR)
+function getBaseUrl(): string {
+  if (typeof window !== 'undefined') return '' // Client: use Next.js rewrites
+  return BACKEND_URL // Server: direct to backend
+}
+
+// Fetch CSRF token from backend via Next.js proxy (sets cookie)
+async function fetchCsrfToken(): Promise<string | undefined> {
+  if (csrfPromise) return csrfPromise
+  
+  csrfPromise = (async () => {
+    try {
+      const baseUrl = getBaseUrl()
+      const res = await fetch(`${baseUrl}/api/auth/csrf`, {
+        credentials: 'include',
+      })
+      if (res.ok) {
+        const data = await res.json()
+        return data.csrfToken
+      }
+    } catch {
+      // Ignore errors, fallback to cookie
+    }
+    return getCsrfToken()
+  })()
+  
+  return csrfPromise
+}
+
+// Ensure CSRF token is available (fetches if needed)
+async function ensureCsrfToken(): Promise<string | undefined> {
+  const existing = getCsrfToken()
+  if (existing) return existing
+  return fetchCsrfToken()
 }
 
 type FetchOptions = RequestInit & { skipCredentials?: boolean; skipCsrf?: boolean }
@@ -29,13 +68,14 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
 
   // Add CSRF token for mutations
   if (isMutation && !skipCsrf) {
-    const csrfToken = getCsrfToken()
+    const csrfToken = await ensureCsrfToken()
     if (csrfToken) {
       headers[CSRF_HEADER_NAME] = csrfToken
     }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
+  const baseUrl = getBaseUrl()
+  const res = await fetch(`${baseUrl}${path}`, {
     ...fetchOpts,
     credentials: skipCredentials ? 'omit' : 'include', // sends HttpOnly cookies
     headers,
@@ -47,6 +87,14 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
   }
 
   return res.json()
+}
+
+// Initialize CSRF token on client side
+export function initCsrf(): Promise<string | undefined> {
+  if (typeof window !== 'undefined') {
+    return ensureCsrfToken()
+  }
+  return Promise.resolve(undefined)
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

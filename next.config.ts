@@ -6,7 +6,7 @@ const cspHeader = `
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data:;
   img-src 'self' data: https: blob:;
-  connect-src 'self' http://localhost:4000 https://legalx-backend-gl4b.onrender.com https://api.razorpay.com https://*.supabase.co https://*.resend.com wss://*.supabase.co;
+  connect-src 'self' https://api.razorpay.com https://*.supabase.co https://*.resend.com wss://*.supabase.co;
   frame-src 'self' https://api.razorpay.com https://js.stripe.com;
   frame-ancestors 'none';
   base-uri 'self';
@@ -25,10 +25,18 @@ const securityHeaders = [
 ]
 
 const nextConfig: NextConfig = {
-  // Silence the Turbopack/webpack mismatch warning
   turbopack: {},
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]
+  },
+  async rewrites() {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${backendUrl}/api/:path*`,
+      },
+    ]
   },
   async redirects() {
     return [
@@ -37,7 +45,6 @@ const nextConfig: NextConfig = {
       { source: '/consultation', destination: '/talk-to-lawyer', permanent: true },
       { source: '/business-law', destination: '/documents', permanent: true },
       { source: '/contact', destination: '/about', permanent: false },
-      // Old generic request selector now redirects to services hub
       { source: '/request', destination: '/documents', permanent: false },
     ]
   },

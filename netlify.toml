@@ -4,3 +4,11 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Proxy /api/* to backend (Render) so cookies work cross-origin
+[[redirects]]
+  from = "/api/*"
+  to = "https://legalx-backend-gl4b.onrender.com/api/:splat"
+  status = 200
+  force = true
+  headers = {X-Forwarded-For = ":splat", X-Forwarded-Proto = "https"}
