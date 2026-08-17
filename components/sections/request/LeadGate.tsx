@@ -189,7 +189,7 @@ function TrustBadge({ icon, text }: { icon: 'lock' | 'phone' | 'check'; text: st
   }
   return (
     <div className="flex flex-col items-center gap-1">
-      <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+      <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" suppressHydrationWarning>
         {icons[icon]}
       </svg>
       <span className="text-[11px] text-muted font-medium">{text}</span>
