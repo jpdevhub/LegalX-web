@@ -57,7 +57,7 @@ async function ensureCsrfToken(): Promise<string | undefined> {
 
 type FetchOptions = RequestInit & { skipCredentials?: boolean; skipCsrf?: boolean }
 
-async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
+export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { skipCredentials, skipCsrf, ...fetchOpts } = options
   const isMutation = ['POST', 'PATCH', 'PUT', 'DELETE'].includes((fetchOpts.method || 'GET').toUpperCase())
   

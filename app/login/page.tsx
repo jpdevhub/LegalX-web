@@ -27,7 +27,7 @@ function LoginForm() {
     try {
       const user = await apiLogin(email, password)
       // Redirect admin to admin panel, others to home
-      router.push(user.role === 'admin' ? '/admin' : redirectTo)
+      router.push(user.role === 'admin' ? '/admin' : user.role === 'lawyer' ? '/lawyer-dashboard' : redirectTo)
       router.refresh()
     } catch (err: any) {
       if (mountedRef.current) {
