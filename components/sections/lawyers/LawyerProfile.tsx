@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Lawyer } from '@/lib/lawyers'
+import { BookingWidget } from './BookingWidget'
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
@@ -432,49 +433,15 @@ export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
               </div>
 
               {/* Sticky sidebar — desktop only */}
-              <div className="hidden lg:block w-64 flex-shrink-0">
-                <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md overflow-hidden sticky top-20">
-                  <div className="px-5 pt-5 pb-4 border-b border-hairline dark:border-hairline-dark">
-                    <h2 className="text-body-sm font-semibold text-ink dark:text-ink">Book a Consultation</h2>
-                    <p className="text-[12px] text-muted mt-0.5">Select a consultation type</p>
-                  </div>
-
-                  <div className="p-4 space-y-2.5">
-                    {consultOptions.map((opt) => (
-                      <button
-                        key={opt.type}
-                        onClick={() => openModal(opt.type, opt.fee)}
-                        className="w-full flex items-center gap-3 border border-hairline dark:border-hairline-dark rounded-sm px-3 py-2.5 hover:border-primary hover:bg-primary/5 dark:hover:bg-primary/8 transition-colors duration-150 group text-left"
-                      >
-                        <svg className="w-4 h-4 text-muted group-hover:text-primary transition-colors duration-150 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
-                          <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-body-sm font-semibold text-ink dark:text-ink">{opt.type}</div>
-                          <div className="text-[11px] text-muted">{opt.desc}</div>
-                        </div>
-                        <span className="text-primary font-bold text-[12px]">₹{opt.fee}/min</span>
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="px-4 pb-4">
-                    <div className="bg-surface-soft dark:bg-white/5 border border-hairline dark:border-hairline-dark rounded-sm p-3 text-center">
-                      <p className="text-[11px] text-muted leading-snug">
-                        Booked &amp; conducted through the{' '}
-                        <span className="font-semibold text-ink dark:text-ink">LegalX app</span>. Coming soon.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="border-t border-hairline dark:border-hairline-dark px-4 py-3">
-                    <Link
-                      href="/talk-to-lawyer"
-                      className="flex items-center justify-center gap-1 text-body-sm font-medium text-primary hover:underline"
-                    >
-                      ← All lawyers
-                    </Link>
-                  </div>
+              <div className="hidden lg:block w-72 flex-shrink-0">
+                <div className="sticky top-20 space-y-3">
+                  <BookingWidget lawyer={lawyer} />
+                  <Link
+                    href="/talk-to-lawyer"
+                    className="block text-center text-xs text-slate-500 hover:text-[#C9A227] transition-colors py-2"
+                  >
+                    ← Back to all lawyers
+                  </Link>
                 </div>
               </div>
             </div>
