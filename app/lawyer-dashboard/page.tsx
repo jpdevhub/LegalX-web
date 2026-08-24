@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { apiFetch, apiGetMe, type AuthUser } from '@/lib/api'
+import { apiFetch, apiGetMe, apiGetLawyerMe, type AuthUser, type LawyerMe } from '@/lib/api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface IncomingCall {
@@ -125,6 +125,8 @@ export default function LawyerDashboardPage() {
   const [toggling, setToggling] = useState(false)
   const [incomingCall, setIncomingCall] = useState<IncomingCall | null>(null)
   const [consultations, setConsultations] = useState<any[]>([])
+  const [lawyerStatus, setLawyerStatus] = useState<LawyerMe | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
 
   useEffect(() => {
     mountedRef.current = true
@@ -150,6 +152,14 @@ export default function LawyerDashboardPage() {
     apiFetch<{ consultations: any[] }>('/api/consultations/my')
       .then(d => { if (mountedRef.current) setConsultations(d.consultations) })
       .catch(() => {})
+  }, [user])
+
+  // ── Fetch lawyer verification status ────────────────────────────────────
+  useEffect(() => {
+    if (!user) return
+    apiGetLawyerMe()
+      .then(data => { if (mountedRef.current) { setLawyerStatus(data); setStatusLoading(false) } })
+      .catch(() => { if (mountedRef.current) setStatusLoading(false) })
   }, [user])
 
   // ── SSE: listen for incoming calls via backend EventSource ────────────────
@@ -223,10 +233,79 @@ export default function LawyerDashboardPage() {
   }, [incomingCall])
 
   // ── Loading screen ───────────────────────────────────────────────────────
-  if (loading) {
+  if (loading || statusLoading) {
     return (
       <div className="min-h-screen bg-[#080B12] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#C9A227] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  // ── Pending verification screen ──────────────────────────────────────────
+  if (!lawyerStatus || !lawyerStatus.onboarding_complete || lawyerStatus.verification_status === 'pending_verification') {
+    return (
+      <div className="min-h-screen bg-[#080B12] flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">Application Under Review</h1>
+          <p className="text-slate-400 text-sm leading-relaxed mb-2">
+            Your Bar Council credentials and documents have been submitted and are being reviewed by our compliance team.
+          </p>
+          <p className="text-slate-500 text-xs mb-8">This typically takes 1–2 business days. You will receive an email once approved.</p>
+          <div className="bg-[#0E1220] border border-white/8 rounded-2xl p-6 text-left space-y-3 mb-6">
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">What happens next</p>
+            {[
+              'Our team verifies your Bar Council registration number',
+              'Documents are checked for clarity and authenticity',
+              'You receive an approval email with access to your portal',
+              'Clients can start booking consultations with you',
+            ].map((step, i) => (
+              <div key={i} className="flex items-start gap-3">
+                <span className="w-5 h-5 rounded-full bg-[#C9A227]/20 text-[#C9A227] text-xs flex items-center justify-center flex-shrink-0 mt-0.5 font-bold">{i + 1}</span>
+                <span className="text-slate-400 text-sm">{step}</span>
+              </div>
+            ))}
+          </div>
+          <button
+            onClick={() => window.location.href = 'mailto:support@legalxonline.com'}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors underline"
+          >
+            Questions? Email support@legalxonline.com
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Rejected screen ──────────────────────────────────────────────────────
+  if (lawyerStatus?.verification_status === 'rejected') {
+    return (
+      <div className="min-h-screen bg-[#080B12] flex items-center justify-center px-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto mb-6">
+            <svg className="w-10 h-10 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75l4.5 4.5m0-4.5l-4.5 4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-white mb-3">Application Not Approved</h1>
+          {lawyerStatus.rejection_reason && (
+            <div className="bg-rose-500/10 border border-rose-500/20 rounded-xl p-4 text-left mb-6">
+              <p className="text-xs font-semibold text-rose-400 uppercase tracking-wider mb-2">Reason from compliance team</p>
+              <p className="text-slate-300 text-sm leading-relaxed">{lawyerStatus.rejection_reason}</p>
+            </div>
+          )}
+          <p className="text-slate-400 text-sm mb-6">Please correct the issue mentioned above and resubmit your application.</p>
+          <button
+            onClick={() => window.location.href = '/onboarding/lawyer'}
+            className="w-full h-11 rounded-xl bg-[#C9A227] text-[#080B12] font-semibold text-sm hover:bg-[#E5C050] transition-colors"
+          >
+            Resubmit Application
+          </button>
+        </div>
       </div>
     )
   }

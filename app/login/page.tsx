@@ -4,7 +4,7 @@ import { Suspense, useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { apiLogin } from '@/lib/api'
+import { apiLogin, apiGetLawyerMe } from '@/lib/api'
 import { LXLogoMark } from '@/components/ui/LXLogo'
 
 function LoginForm() {
@@ -18,7 +18,6 @@ function LoginForm() {
   const redirectTo   = searchParams.get('redirect_to') || '/'
   const message      = searchParams.get('message')
   const mountedRef   = useRef(true)
-  useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,14 +25,25 @@ function LoginForm() {
     setError(null)
     try {
       const user = await apiLogin(email, password)
-      // Redirect admin to admin panel, others to home
-      router.push(user.role === 'admin' ? '/admin' : user.role === 'lawyer' ? '/lawyer-dashboard' : redirectTo)
-      router.refresh()
-    } catch (err: any) {
-      if (mountedRef.current) {
-        setError(err.message || 'Invalid email or password. Please try again.')
-        setLoading(false)
+      if (user.role === 'admin') {
+        router.push('/admin')
+      } else if (user.role === 'lawyer') {
+        // Gate: redirect to onboarding if not yet submitted
+        const lawyerMe = await apiGetLawyerMe()
+        if (!lawyerMe || !lawyerMe.onboarding_complete) {
+          router.push('/onboarding/lawyer')
+        } else {
+          router.push('/lawyer-dashboard')
+        }
+      } else {
+        router.push(redirectTo)
       }
+      router.refresh()
+      // Do NOT setLoading(false) — page navigates away
+    } catch (err: any) {
+      // Always reset — never leave user stuck on a spinner
+      setLoading(false)
+      setError(err.message || 'Invalid email or password. Please try again.')
     }
   }
 
