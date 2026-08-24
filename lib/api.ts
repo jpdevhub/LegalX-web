@@ -27,24 +27,30 @@ function getBaseUrl(): string {
 
 // Fetch CSRF token from backend via Next.js proxy (sets cookie)
 async function fetchCsrfToken(): Promise<string | undefined> {
+  // Use cached promise only if already in-flight — never cache a failure
   if (csrfPromise) return csrfPromise
-  
+
   csrfPromise = (async () => {
     try {
       const baseUrl = getBaseUrl()
       const res = await fetch(`${baseUrl}/api/auth/csrf`, {
         credentials: 'include',
+        signal: AbortSignal.timeout(5000), // 5 s hard timeout
       })
       if (res.ok) {
         const data = await res.json()
-        return data.csrfToken
+        return data.csrfToken as string
       }
     } catch {
-      // Ignore errors, fallback to cookie
+      // Network error or timeout — fall through to cookie fallback
     }
     return getCsrfToken()
   })()
-  
+
+  // ⚠️ Critical: clear the promise slot after resolution so a future
+  // call can retry on the next click (not reuse a stale/failed promise)
+  csrfPromise.then(() => { csrfPromise = null }).catch(() => { csrfPromise = null })
+
   return csrfPromise
 }
 
@@ -82,8 +88,24 @@ export async function apiFetch<T>(path: string, options: FetchOptions = {}): Pro
   })
 
   if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error(body.error || `API error ${res.status}`)
+    let body: { error?: string } = {}
+    try { body = await res.json() } catch { /* ignore */ }
+    const serverMsg = body.error
+
+    // Map common status codes to user-friendly messages
+    const friendlyMessages: Record<number, string> = {
+      400: serverMsg || 'Invalid request. Please check your input.',
+      401: serverMsg || 'Invalid email or password.',
+      403: serverMsg || 'Access denied.',
+      404: serverMsg || 'Not found.',
+      409: serverMsg || 'An account with this email already exists.',
+      429: 'Too many attempts. Please wait a few minutes and try again.',
+      500: 'Server error. Please try again in a moment.',
+      502: 'Server is unavailable. Please try again shortly.',
+      503: 'Service temporarily unavailable. Please try again.',
+    }
+
+    throw new Error(friendlyMessages[res.status] ?? serverMsg ?? `Request failed (${res.status})`)
   }
 
   return res.json()
@@ -215,4 +237,69 @@ export async function apiRejectLawyer(id: string, reason?: string): Promise<void
 
 export async function apiGetAdminStats(): Promise<{ verifiedLawyers: number; pendingApprovals: number }> {
   return apiFetch('/api/admin/stats')
+}
+
+// ── Lawyer Onboarding ─────────────────────────────────────────────────────────
+
+export interface LawyerMe {
+  onboarding_complete: boolean
+  verification_status: 'pending_signup' | 'pending_verification' | 'verified' | 'rejected' | 'unverified'
+  rejection_reason: string | null
+  profile: Record<string, any> | null
+}
+
+export async function apiGetLawyerMe(): Promise<LawyerMe | null> {
+  try {
+    return await apiFetch<LawyerMe>('/api/lawyers/me')
+  } catch {
+    return null
+  }
+}
+
+export async function apiUploadLawyerDoc(
+  file: File,
+  docType: 'profile_photo' | 'enrolment_cert' | 'bar_id_front' | 'bar_id_back' | 'govt_id'
+): Promise<{ path: string }> {
+  const csrfToken = document.cookie
+    .split('; ')
+    .find(r => r.startsWith('lx-csrf-token='))
+    ?.split('=')[1]
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetch(`/api/upload/lawyer-doc?docType=${docType}`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
+    body: formData, // multipart — do NOT set Content-Type, browser sets boundary
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: 'Upload failed' }))
+    throw new Error(body.error || 'Upload failed')
+  }
+  return res.json()
+}
+
+export async function apiSubmitLawyerOnboarding(data: Record<string, any>): Promise<void> {
+  await apiFetch('/api/lawyers/onboarding', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+}
+
+// ── Admin: fetch signed document URLs for a lawyer ────────────────────────────
+export interface LawyerDocs {
+  lawyer: { name: string; email: string; govtIdType: string }
+  docs: {
+    enrolment_cert: string | null
+    bar_id_front: string | null
+    bar_id_back: string | null
+    govt_id: string | null
+    profile_photo: string | null
+  }
+}
+
+export async function apiGetLawyerDocs(id: string): Promise<LawyerDocs> {
+  return apiFetch<LawyerDocs>(`/api/admin/lawyers/${id}/docs`)
 }

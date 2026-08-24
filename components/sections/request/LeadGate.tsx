@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { apiFetch } from '@/lib/api'
 
 interface LeadGateProps {
   serviceSlug: string
@@ -26,22 +27,16 @@ export function LeadGate({ serviceSlug, serviceTitle, onSuccess }: LeadGateProps
 
     setLoading(true)
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/leads`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: name.trim(),
-            phone: phone.replace(/\s+/g, ''),
-            email: email.trim() || undefined,
-            serviceSlug,
-            serviceTitle,
-          }),
-        }
-      )
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Something went wrong')
+      const data = await apiFetch<{ leadId: string }>('/api/leads', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: phone.replace(/\s+/g, ''),
+          email: email.trim() || undefined,
+          serviceSlug,
+          serviceTitle,
+        }),
+      })
 
       // Store in sessionStorage so subsequent steps can access it
       sessionStorage.setItem('lx_lead_id', data.leadId)

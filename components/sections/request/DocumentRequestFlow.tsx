@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import type { LegalDocument, FormField } from '@/lib/documents'
 import { LeadGate } from './LeadGate'
+import { apiFetch } from '@/lib/api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6
@@ -286,84 +287,138 @@ function StepReview({ doc, values, submitting, onSubmit }: { doc: LegalDocument;
 }
 
 // ── Step 5: Payment ───────────────────────────────────────────────────────────
-function StepPayment({ doc, applicationId, leadId, onSuccess }: { doc: LegalDocument; applicationId: string; leadId: string; onSuccess: () => void }) {
-  const [paying, setPaying] = useState(false)
-  const [error, setError] = useState('')
+// ── StepPayment ──────────────────────────────────────────────────────────────
+// Handles the full Razorpay pre-auth flow:
+//   1. Create Razorpay order on backend (POST /api/payment/create-order)
+//   2. Open Razorpay checkout modal
+//   3. On success: verify signature on backend (POST /api/payment/verify)
+//      → backend sends admin "Payment Received" email + user "Payment Confirmed" email
+// If user dismisses the modal without paying, they stay on this step.
+// The admin already received a "Documents Submitted — Awaiting Payment" email
+// when POST /api/applications was called (Step 4).
+function StepPayment({
+  doc,
+  applicationId,
+  leadId,
+  onSuccess,
+}: {
+  doc: LegalDocument
+  applicationId: string
+  leadId: string
+  onSuccess: () => void
+}) {
+  const [paying, setPaying]     = useState(false)
+  const [verifying, setVerifying] = useState(false)
+  const [error, setError]       = useState('')
+  const [sdkReady, setSdkReady] = useState(false)
 
-  /** Lazily inject the Razorpay SDK script — only loads when payment step mounts. */
-  function loadRazorpayScript(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if ((window as any).Razorpay) return resolve() // already loaded
-      const script = document.createElement('script')
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-      script.onload  = () => resolve()
-      script.onerror = () => reject(new Error('Failed to load Razorpay SDK'))
-      document.head.appendChild(script)
-    })
-  }
+  // Pre-load the Razorpay SDK as soon as this step mounts so it's ready when Pay is clicked
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if ((window as any).Razorpay) { setSdkReady(true); return }
+    const script = document.createElement('script')
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    script.async = true
+    script.onload  = () => setSdkReady(true)
+    script.onerror = () => setError('Failed to load payment SDK. Please refresh and try again.')
+    document.head.appendChild(script)
+    return () => {
+      // Cleanup if component unmounts before script loads (rare)
+      if (!sdkReady) script.remove()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const amountPaise = parseInt(doc.pricing.total.replace(/[^\d]/g, ''), 10) * 100
 
   async function handlePay() {
+    if (!sdkReady) {
+      setError('Payment SDK not ready yet. Please wait a moment and try again.')
+      return
+    }
     setError('')
     setPaying(true)
+
     try {
-      const backend = process.env.NEXT_PUBLIC_BACKEND_URL
-
-      // Load Razorpay SDK only when user clicks Pay — no global script in layout
-      await loadRazorpayScript()
-
-      // Get amount in paise from doc pricing
-      const amountStr = doc.pricing.total.replace(/[^\d]/g, '')
-      const amountPaise = parseInt(amountStr, 10) * 100
-
-      // 1. Create Razorpay order via backend — key_id is returned from server, never in env
-      const orderRes = await fetch(`${backend}/api/payment/create-order`, {
+      // ── 1. Create order on backend ───────────────────────────────────────
+      const order = await apiFetch<{
+        orderId: string
+        keyId: string
+        amount: number
+        currency: string
+      }>('\/api\/payment\/create-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ applicationId, leadId, serviceSlug: doc.slug, amount: amountPaise }),
+        body: JSON.stringify({
+          applicationId,
+          leadId,
+          serviceSlug: doc.slug,
+          amount: amountPaise,
+        }),
       })
-      const order = await orderRes.json()
-      if (!orderRes.ok) throw new Error(order.error || 'Could not create payment order')
 
-      // 2. Open Razorpay checkout — key comes from backend, never from frontend env
       const leadName = sessionStorage.getItem('lx_lead_name') || ''
 
-      // @ts-expect-error Razorpay loaded via dynamic script above
-      const rzp = new window.Razorpay({
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'LegalX Online',
-        description: doc.title,
-        order_id: order.orderId,
-        prefill: { name: leadName },
-        theme: { color: '#F5A623' },
-        handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-          // 3. Verify payment on backend
-          const verifyRes = await fetch(`${backend}/api/payment/verify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              razorpayOrderId: response.razorpay_order_id,
-              razorpayPaymentId: response.razorpay_payment_id,
-              razorpaySignature: response.razorpay_signature,
-              applicationId,
-              leadId,
-            }),
-          })
-          if (verifyRes.ok) {
-            onSuccess()
-          } else {
-            setError('Payment verification failed. Please contact support.')
-          }
-          setPaying(false)
-        },
-        modal: { ondismiss: () => setPaying(false) },
+      // ── 2. Open Razorpay checkout ────────────────────────────────────────
+      await new Promise<void>((resolve, reject) => {
+        // @ts-expect-error Razorpay is loaded via dynamic script — no @types package needed
+        const rzp = new window.Razorpay({
+          key: order.keyId,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'LegalX Online',
+          description: doc.title,
+          order_id: order.orderId,
+          prefill: { name: leadName },
+          image: '/logo.svg',
+          theme: { color: '#C9A227' },
+
+          handler: async (response: {
+            razorpay_order_id: string
+            razorpay_payment_id: string
+            razorpay_signature: string
+          }) => {
+            try {
+              setVerifying(true)
+              // ── 3. Verify signature + update DB + send admin email ───────
+              await apiFetch('\/api\/payment\/verify', {
+                method: 'POST',
+                body: JSON.stringify({
+                  razorpayOrderId:   response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  razorpaySignature: response.razorpay_signature,
+                  applicationId,
+                  leadId,
+                }),
+              })
+              // ✅ Backend now:
+              //   - verifies HMAC signature
+              //   - marks application as paid in DB
+              //   - sends admin: "Payment Received: {name} — {service} (₹{amount})"
+              //   - sends user: "Payment Confirmed — {service} | LegalX"
+              resolve()
+              onSuccess()
+            } catch (verifyErr: any) {
+              reject(verifyErr)
+            }
+          },
+
+          modal: {
+            ondismiss: () => {
+              // User closed modal without paying — stay on payment step
+              setPaying(false)
+              setVerifying(false)
+              reject(new Error('cancelled'))
+            },
+          },
+        })
+        rzp.open()
       })
-      rzp.open()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Payment failed. Try again.')
+    } catch (err: any) {
+      if (err?.message !== 'cancelled') {
+        setError(err?.message || 'Payment failed. Please try again or contact support.')
+      }
       setPaying(false)
+      setVerifying(false)
     }
   }
 
@@ -371,44 +426,105 @@ function StepPayment({ doc, applicationId, leadId, onSuccess }: { doc: LegalDocu
     <div>
       <span className="text-label-caps text-primary uppercase tracking-widest block mb-2">Step 5 of 6</span>
       <h1 className="text-ink dark:text-white mb-2" style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 700, lineHeight: 1.2 }}>
-        Payment
+        Complete Payment
       </h1>
-      <p className="text-body-sm text-body-text dark:text-slate-400 mb-8 leading-relaxed">
-        Complete your payment securely via Razorpay. All major UPI apps, cards, and net banking accepted.
+      <p className="text-body-sm text-body-text dark:text-slate-400 mb-6 leading-relaxed">
+        Your documents have been submitted. Complete payment to begin processing your application.
+        We accept all UPI apps, credit/debit cards, and net banking.
       </p>
 
-      {/* Order summary card */}
-      <div className="bg-surface-soft dark:bg-white/5 rounded-xl p-6 mb-8 border border-hairline dark:border-white/10 max-w-sm">
-        <p className="text-label-caps text-muted uppercase tracking-widest mb-3">Order Summary</p>
-        <div className="space-y-2 text-body-sm">
-          <div className="flex justify-between">
+      {/* Notice — documents already received */}
+      <div className="flex items-start gap-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl p-4 mb-6 max-w-sm">
+        <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" suppressHydrationWarning>
+          <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <p className="text-[13px] text-emerald-700 dark:text-emerald-400 leading-snug">
+          Documents received and saved. Our team has been notified and is ready to begin once payment is confirmed.
+        </p>
+      </div>
+
+      {/* Order summary */}
+      <div className="bg-surface-soft dark:bg-white/5 rounded-xl p-6 mb-6 border border-hairline dark:border-white/10 max-w-sm">
+        <p className="text-label-caps text-muted uppercase tracking-widest mb-4">Order Summary</p>
+        <div className="space-y-3 text-body-sm">
+          <div className="flex justify-between items-center">
             <span className="text-body-text dark:text-slate-400">{doc.title}</span>
             <span className="text-ink dark:text-white font-semibold">{doc.pricing.total}</span>
           </div>
-          <div className="flex justify-between text-muted">
-            <span>Platform Fee</span><span>₹0</span>
+          <div className="flex justify-between items-center text-muted text-[12px]">
+            <span>Platform Fee</span>
+            <span className="text-emerald-600 dark:text-emerald-400 font-medium">FREE</span>
           </div>
-          <div className="flex justify-between pt-2 border-t border-hairline dark:border-white/10">
-            <span className="font-bold text-ink dark:text-white">Total</span>
-            <span className="font-bold text-primary text-[18px]">{doc.pricing.total}</span>
+          <div className="flex justify-between items-center pt-3 border-t border-hairline dark:border-white/10">
+            <span className="font-bold text-ink dark:text-white">Total Due</span>
+            <span className="font-bold text-primary text-[20px]">{doc.pricing.total}</span>
           </div>
         </div>
       </div>
 
-      {error && <p className="text-[13px] text-red-500 mb-4" role="alert">{error}</p>}
+      {/* What happens after payment */}
+      <div className="max-w-sm mb-6 space-y-2">
+        {[
+          'Application moved to \'In Progress\' status',
+          'You receive a payment confirmation email',
+          'Our team contacts you within 24 hours',
+          'Admin notified immediately with payment receipt',
+        ].map((item) => (
+          <div key={item} className="flex items-center gap-2 text-[12px] text-body-text dark:text-slate-400">
+            <svg className="w-3.5 h-3.5 text-primary flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" suppressHydrationWarning>
+              <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            {item}
+          </div>
+        ))}
+      </div>
+
+      {error && (
+        <div className="flex items-start gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 mb-4 max-w-sm">
+          <svg className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" suppressHydrationWarning>
+            <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" strokeLinecap="round" /><line x1="12" y1="16" x2="12.01" y2="16" strokeLinecap="round" />
+          </svg>
+          <p className="text-[13px] text-red-600 dark:text-red-400">{error}</p>
+        </div>
+      )}
 
       <button
+        id="pay-now-btn"
         onClick={handlePay}
-        disabled={paying}
-        className="inline-flex items-center gap-2 bg-primary text-white font-semibold px-8 py-3.5 rounded-md hover:bg-primary-hover disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-body-sm"
+        disabled={paying || verifying || !sdkReady}
+        className="inline-flex items-center gap-2.5 bg-primary hover:bg-primary-hover text-white font-semibold px-8 py-3.5 rounded-lg transition-colors text-body-sm disabled:opacity-60 disabled:cursor-not-allowed"
       >
-        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" suppressHydrationWarning>
-          <rect x="1" y="4" width="22" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-          <line x1="1" y1="10" x2="23" y2="10" strokeLinecap="round" />
-        </svg>
-        {paying ? 'Opening payment…' : `Pay ${doc.pricing.total} Securely`}
+        {verifying ? (
+          <>
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            Confirming payment…
+          </>
+        ) : paying ? (
+          <>
+            <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            Opening Razorpay…
+          </>
+        ) : (
+          <>
+            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" suppressHydrationWarning>
+              <rect x="1" y="4" width="22" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
+              <line x1="1" y1="10" x2="23" y2="10" strokeLinecap="round" />
+            </svg>
+            Pay {doc.pricing.total} Securely
+          </>
+        )}
       </button>
-      <p className="text-[11px] text-muted mt-3">Secured by Razorpay · 256-bit SSL encryption</p>
+
+      <div className="flex items-center gap-4 mt-4 max-w-sm">
+        <p className="text-[11px] text-muted flex items-center gap-1">
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" suppressHydrationWarning>
+            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" strokeLinecap="round" />
+          </svg>
+          256-bit SSL
+        </p>
+        <p className="text-[11px] text-muted">Secured by Razorpay</p>
+        {!sdkReady && <p className="text-[11px] text-amber-500 animate-pulse">Loading payment…</p>}
+      </div>
     </div>
   )
 }
@@ -544,13 +660,10 @@ export function DocumentRequestFlow({ doc }: { doc: LegalDocument }) {
   async function handleSubmitApplication() {
     setSubmitting(true)
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/applications`, {
+      const data = await apiFetch<{ applicationId: string }>('/api/applications', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ leadId, serviceSlug: doc.slug, formData: formValues }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
       setApplicationId(data.applicationId)
       setStep(5)
     } catch {

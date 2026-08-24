@@ -2,12 +2,12 @@ import type { NextConfig } from 'next'
 
 const cspHeader = `
   default-src 'self';
-  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://js.stripe.com https://cdn.jsdelivr.net https://vercel.live;
+  script-src 'self' 'unsafe-eval' 'unsafe-inline' https://checkout.razorpay.com https://js.stripe.com https://cdn.jsdelivr.net https://vercel.live;
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src 'self' https://fonts.gstatic.com data: https://vercel.live;
   img-src 'self' data: https: blob:;
-  connect-src 'self' https://api.razorpay.com https://*.supabase.co https://*.resend.com wss://*.supabase.co https://vercel.live https://vercel.com;
-  frame-src 'self' https://api.razorpay.com https://js.stripe.com https://vercel.live;
+  connect-src 'self' https://api.razorpay.com https://lumberjack.razorpay.com https://*.supabase.co https://*.resend.com wss://*.supabase.co https://vercel.live https://vercel.com;
+  frame-src 'self' https://checkout.razorpay.com https://api.razorpay.com https://js.stripe.com https://vercel.live;
   manifest-src 'self' https://vercel.com;
   frame-ancestors 'none';
   base-uri 'self';

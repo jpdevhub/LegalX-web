@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
@@ -16,8 +16,6 @@ export default function SignupPage() {
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const router = useRouter()
-  const mountedRef = useRef(true)
-  useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,12 +23,20 @@ export default function SignupPage() {
     setError(null)
     try {
       await apiSignup({ email, password, firstName, lastName, role })
-      router.push('/login?message=Account created! A confirmation email has been sent — please verify, then sign in.')
-    } catch (err: any) {
-      if (mountedRef.current) {
-        setError(err.message || 'Sign up failed. Please try again.')
-        setLoading(false)
+      if (role === 'lawyer') {
+        router.push('/login?message=Account created. Sign in to complete your lawyer profile and submit credentials for verification.')
+      } else {
+        router.push('/login?message=Account created. A confirmation email has been sent — please verify, then sign in.')
       }
+      // Do NOT setLoading(false) here — page navigates away
+    } catch (err: any) {
+      // Always reset loading and show error — no mountedRef guard needed on a form page
+      setLoading(false)
+      setError(
+        err.message === 'An account with this email already exists.'
+          ? 'An account with this email already exists. Sign in instead.'
+          : err.message || 'Sign up failed. Please try again.'
+      )
     }
   }
 
