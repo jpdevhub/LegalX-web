@@ -303,3 +303,140 @@ export interface LawyerDocs {
 export async function apiGetLawyerDocs(id: string): Promise<LawyerDocs> {
   return apiFetch<LawyerDocs>(`/api/admin/lawyers/${id}/docs`)
 }
+
+// ── Lawyer Portal: Consultations ──────────────────────────────────────────────
+
+export type ConsultStatus = 'pending' | 'upcoming' | 'active' | 'completed' | 'cancelled'
+export type ConsultType   = 'chat' | 'voice' | 'video'
+
+export interface PortalConsultation {
+  id: string
+  type: ConsultType
+  status: ConsultStatus
+  scheduledAt: string | null
+  clientName: string
+  clientId: string
+  caseNote: string | null
+  postCallNote: string | null
+  durationMin: number | null
+  fee: number
+  agoraChannel: string | null
+}
+
+export async function apiGetPortalConsultations(status?: ConsultStatus): Promise<PortalConsultation[]> {
+  const qs = status ? `?status=${status}` : ''
+  try { return await apiFetch<PortalConsultation[]>(`/api/consultations/lawyer${qs}`) }
+  catch { return [] }
+}
+
+export async function apiMarkConsultationComplete(id: string, note: string): Promise<void> {
+  await apiFetch(`/api/consultations/${id}/complete`, {
+    method: 'PATCH',
+    body: JSON.stringify({ postCallNote: note }),
+  })
+}
+
+export async function apiGetAgoraToken(consultationId: string): Promise<{ token: string; uid: number; appId: string; channel: string }> {
+  return apiFetch(`/api/consultations/${consultationId}/token`)
+}
+
+// ── Lawyer Portal: Documents ──────────────────────────────────────────────────
+
+export type DocServiceType = 'drafting' | 'verification'
+export type DocStatus      = 'new' | 'in_progress' | 'delivered' | 'revision_requested' | 'completed'
+
+export interface PortalDocument {
+  id: string
+  serviceType: DocServiceType
+  documentType: string
+  status: DocStatus
+  clientName: string
+  revisionCount: number
+  pageCount: number | null
+  verificationTier: 'review_only' | 'review_and_consult' | null
+  fee: number
+  createdAt: string
+  deliverableUrl: string | null
+}
+
+export async function apiGetPortalDocuments(
+  serviceType: DocServiceType,
+  status?: DocStatus
+): Promise<PortalDocument[]> {
+  const qs = new URLSearchParams({ serviceType, ...(status ? { status } : {}) }).toString()
+  try { return await apiFetch<PortalDocument[]>(`/api/applications/lawyer?${qs}`) }
+  catch { return [] }
+}
+
+export async function apiMarkDocumentComplete(id: string): Promise<void> {
+  await apiFetch(`/api/applications/${id}/complete`, { method: 'PATCH' })
+}
+
+// ── Lawyer Portal: Payouts ────────────────────────────────────────────────────
+
+export interface PayoutCycle {
+  id: string
+  periodStart: string
+  periodEnd: string
+  consultationEarnings: number
+  draftingEarnings: number
+  verificationEarnings: number
+  platformFee: number
+  grossAmount: number
+  tdsAmount: number
+  netAmount: number
+  status: 'pending' | 'processing' | 'paid'
+  transactionCount: number
+}
+
+export interface PayoutSummary {
+  currentCyclePending: number
+  totalEarned: number
+  hasPan: boolean
+  tdsRate: number
+  cycles: PayoutCycle[]
+}
+
+export async function apiGetPayoutSummary(): Promise<PayoutSummary> {
+  try { return await apiFetch<PayoutSummary>('/api/lawyers/payouts') }
+  catch { return { currentCyclePending: 0, totalEarned: 0, hasPan: false, tdsRate: 20, cycles: [] } }
+}
+
+// ── Lawyer Portal: Settings ───────────────────────────────────────────────────
+
+export interface LawyerSettings {
+  firstName: string
+  lastName: string
+  bio: string | null
+  firmName: string | null
+  profilePhotoUrl: string | null
+  languages: string[]
+  courtsPracticed: string[]
+  linkedinUrl: string | null
+  websiteUrl: string | null
+  // Services
+  draftingEnabled: boolean
+  verificationEnabled: boolean
+  consultationEnabled: boolean
+  consultationTypes: ('chat' | 'voice' | 'video')[]
+  consultationFeePerMin: number
+  // Payout
+  bankAccountName: string | null
+  bankAccountNumber: string | null
+  bankIfsc: string | null
+  upiId: string | null
+  gstNumber: string | null
+  panNumber: string | null
+}
+
+export async function apiGetLawyerSettings(): Promise<LawyerSettings | null> {
+  try { return await apiFetch<LawyerSettings>('/api/lawyers/settings') }
+  catch { return null }
+}
+
+export async function apiUpdateLawyerSettings(data: Partial<LawyerSettings>): Promise<void> {
+  await apiFetch('/api/lawyers/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  })
+}
