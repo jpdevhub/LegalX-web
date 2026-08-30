@@ -1,12 +1,8 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { Header } from '@/components/layout/Header'
-import { Footer } from '@/components/layout/Footer'
 import { DarkModeProvider } from '@/components/providers/DarkModeProvider'
 import { CsrfProvider } from '@/components/providers/CsrfProvider'
-import { PageTransition } from '@/components/motion/PageTransition'
-import { InstallPWA } from '@/components/ui/InstallPWA'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -76,19 +72,7 @@ export default function RootLayout({
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
         <CsrfProvider>
           <DarkModeProvider>
-            {/* Single Header — renders exactly once, prevents per-page inconsistency */}
-            <Header />
-
-            {/* Page content — wrapped in route transition */}
-            <main id="main-content" className="min-h-[calc(100vh-64px-320px)]">
-              <PageTransition>{children}</PageTransition>
-            </main>
-
-            {/* Single Footer — renders exactly once */}
-            <Footer />
-
-            {/* PWA Install Banner */}
-            <InstallPWA />
+            {children}
           </DarkModeProvider>
         </CsrfProvider>
       </body>
