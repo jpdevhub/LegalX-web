@@ -296,6 +296,8 @@ export default function LawyerOnboardingPage() {
     }
     if (page === 3) {
       if (consultTypes.length === 0) return 'Please select at least one consultation type'
+    }
+    if (page === 4) {
       if (!bankAccount.trim() && !upiId.trim()) return 'Please provide bank account details or a UPI ID'
     }
     return null
@@ -623,9 +625,10 @@ export default function LawyerOnboardingPage() {
                     <button
                       type="button"
                       onClick={() => setAvailableNow(!availableNow)}
-                      className={`relative w-12 h-6 rounded-full transition-colors ${availableNow ? 'bg-[#C9A227]' : 'bg-white/20'}`}
+                      aria-label="Toggle instant consultation availability"
+                      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#C9A227] ${availableNow ? 'bg-[#C9A227]' : 'bg-white/20'}`}
                     >
-                      <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${availableNow ? 'translate-x-7' : 'translate-x-1'}`} />
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ${availableNow ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                   </div>
                 </div>

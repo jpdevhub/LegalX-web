@@ -260,9 +260,10 @@ export async function apiUploadLawyerDoc(
   file: File,
   docType: 'profile_photo' | 'enrolment_cert' | 'bar_id_front' | 'bar_id_back' | 'govt_id'
 ): Promise<{ path: string }> {
+  // Use the same cookie name as the backend sets: 'csrf_token'
   const csrfToken = document.cookie
     .split('; ')
-    .find(r => r.startsWith('lx-csrf-token='))
+    .find(r => r.startsWith(`${CSRF_COOKIE_NAME}=`))
     ?.split('=')[1]
 
   const formData = new FormData()
@@ -271,7 +272,8 @@ export async function apiUploadLawyerDoc(
   const res = await fetch(`/api/upload/lawyer-doc?docType=${docType}`, {
     method: 'POST',
     credentials: 'include',
-    headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
+    // x-csrf-token header is checked by validateCsrf before multer runs
+    headers: csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {},
     body: formData, // multipart — do NOT set Content-Type, browser sets boundary
   })
   if (!res.ok) {
