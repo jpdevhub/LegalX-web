@@ -145,12 +145,13 @@ function ChipSelect({ options, selected, onChange, max }: {
   )
 }
 
-function FileUploadField({ label, docType, path, onUploaded, accept = 'image/jpeg,image/png,application/pdf' }: {
+function FileUploadField({ label, docType, path, onUploaded, accept = 'image/jpeg,image/png,application/pdf', optional = false }: {
   label: string
   docType: 'profile_photo' | 'enrolment_cert' | 'bar_id_front' | 'bar_id_back' | 'govt_id'
   path: string
   onUploaded: (path: string) => void
   accept?: string
+  optional?: boolean
 }) {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -172,7 +173,7 @@ function FileUploadField({ label, docType, path, onUploaded, accept = 'image/jpe
 
   return (
     <div>
-      <FieldLabel required>{label}</FieldLabel>
+      <FieldLabel required={!optional}>{label}</FieldLabel>
       <label
         htmlFor={`upload-${docType}`}
         className={`flex items-center gap-3 h-12 px-4 rounded-lg border-2 border-dashed cursor-pointer transition-all
@@ -188,7 +189,7 @@ function FileUploadField({ label, docType, path, onUploaded, accept = 'image/jpe
         <span className={`text-sm truncate ${path ? 'text-emerald-300' : 'text-slate-400'}`}>
           {uploading ? 'Uploading…' : path ? (filename || 'Uploaded') : 'Click to upload or drag and drop'}
         </span>
-        <span className="text-xs text-slate-500 ml-auto flex-shrink-0">PDF · JPG · PNG · 5 MB</span>
+        <span className="text-xs text-slate-500 ml-auto flex-shrink-0">{accept.includes('pdf') ? 'PDF · ' : ''}JPG · PNG · 5 MB</span>
         <input
           id={`upload-${docType}`} type="file" accept={accept} className="hidden"
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
@@ -431,11 +432,12 @@ export default function LawyerOnboardingPage() {
                     <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Document Uploads</p>
                     <div className="space-y-3">
                       <FileUploadField
-                        label="Professional Photo (optional)"
+                        label="Professional Photo"
                         docType="profile_photo"
                         path={profilePhotoPath}
                         onUploaded={setProfilePhotoPath}
                         accept="image/jpeg,image/png"
+                        optional
                       />
                       <FileUploadField
                         label="Bar Council Enrolment Certificate"
