@@ -173,8 +173,19 @@ export function Header() {
                         {user.role === 'admin' && (
                           <DropdownItem href="/admin" onClick={() => setUserMenuOpen(false)} icon={<GridIcon />}>Admin Panel</DropdownItem>
                         )}
-                        <DropdownItem href="/talk-to-lawyer" onClick={() => setUserMenuOpen(false)} icon={<ClockIcon />}>Talk to a Lawyer</DropdownItem>
-                        <DropdownItem href="/documents" onClick={() => setUserMenuOpen(false)} icon={<FileIcon />}>Documents</DropdownItem>
+                        {user.role === 'lawyer' ? (
+                          <>
+                            <DropdownItem href="/lawyer-dashboard" onClick={() => setUserMenuOpen(false)} icon={<GridIcon />}>My Portal</DropdownItem>
+                            <DropdownItem href="/lawyer-dashboard/consultations" onClick={() => setUserMenuOpen(false)} icon={<ClockIcon />}>My Consultations</DropdownItem>
+                            <DropdownItem href="/lawyer-dashboard/documents" onClick={() => setUserMenuOpen(false)} icon={<FileIcon />}>My Documents</DropdownItem>
+                            <DropdownItem href="/lawyer-dashboard/payouts" onClick={() => setUserMenuOpen(false)} icon={<FileIcon />}>My Payouts</DropdownItem>
+                          </>
+                        ) : user.role !== 'admin' ? (
+                          <>
+                            <DropdownItem href="/talk-to-lawyer" onClick={() => setUserMenuOpen(false)} icon={<ClockIcon />}>Talk to a Lawyer</DropdownItem>
+                            <DropdownItem href="/documents" onClick={() => setUserMenuOpen(false)} icon={<FileIcon />}>Documents</DropdownItem>
+                          </>
+                        ) : null}
                       </div>
                       <div className="border-t border-hairline dark:border-white/10 py-1.5">
                         <button
@@ -293,6 +304,22 @@ export function Header() {
                     className="flex items-center px-4 py-3 rounded-sm mb-1 text-body-md font-medium text-body-text dark:text-slate-400 hover:bg-surface-soft dark:hover:bg-surface-soft-dark transition-colors">
                     Admin Panel
                   </Link>
+                )}
+                {user.role === 'lawyer' && (
+                  <>
+                    <Link href="/lawyer-dashboard" onClick={() => setDrawerOpen(false)}
+                      className="flex items-center px-4 py-3 rounded-sm mb-1 text-body-md font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors">
+                      My Portal
+                    </Link>
+                    <Link href="/lawyer-dashboard/consultations" onClick={() => setDrawerOpen(false)}
+                      className="flex items-center px-4 py-3 rounded-sm mb-1 text-body-md font-medium text-body-text dark:text-slate-400 hover:bg-surface-soft dark:hover:bg-surface-soft-dark transition-colors">
+                      My Consultations
+                    </Link>
+                    <Link href="/lawyer-dashboard/documents" onClick={() => setDrawerOpen(false)}
+                      className="flex items-center px-4 py-3 rounded-sm mb-1 text-body-md font-medium text-body-text dark:text-slate-400 hover:bg-surface-soft dark:hover:bg-surface-soft-dark transition-colors">
+                      My Documents
+                    </Link>
+                  </>
                 )}
                 <button
                   onClick={() => { handleLogout(); setDrawerOpen(false) }}
