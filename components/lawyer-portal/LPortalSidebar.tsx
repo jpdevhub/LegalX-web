@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { apiLogout, type AuthUser } from '@/lib/api'
+import { LXLogoMark } from '@/components/ui/LXLogo'
 
 const NAV = [
   { label: 'Dashboard',     href: '/lawyer-dashboard',               icon: 'grid' },
@@ -56,13 +57,13 @@ export function LPortalSidebar({ user, isOnline, onToggleOnline }: Props) {
 
   const Inner = () => (
     <div className="flex flex-col h-full">
-      {/* Logo */}
+      {/* Logo — identical mark to main site header */}
       <div className="px-5 py-5 border-b border-white/8 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-[#C9A227] flex items-center justify-center shrink-0">
-          <span className="text-[#0A0D14] font-black text-sm">LX</span>
-        </div>
-        <div>
-          <div className="text-white font-bold text-sm leading-none">LegalX</div>
+        <LXLogoMark height={36} className="text-white shrink-0" />
+        <div className="min-w-0">
+          <div className="text-white font-bold text-[15px] leading-none tracking-tight">
+            LegalX<span className="text-[#C9A227]">Online</span>
+          </div>
           <div className="text-[#C9A227] text-[10px] font-semibold tracking-widest uppercase mt-0.5">Lawyer Portal</div>
         </div>
       </div>
@@ -152,10 +153,10 @@ export function LPortalSidebar({ user, isOnline, onToggleOnline }: Props) {
       {/* Mobile top bar */}
       <div className="lg:hidden fixed top-0 inset-x-0 z-40 h-14 bg-[#0A0D14] border-b border-white/8 flex items-center justify-between px-4">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-[#C9A227] flex items-center justify-center">
-            <span className="text-[#0A0D14] font-black text-xs">LX</span>
-          </div>
-          <span className="text-white font-semibold text-sm">Lawyer Portal</span>
+          <LXLogoMark height={32} className="text-white" />
+          <span className="text-white font-bold text-[15px] leading-none tracking-tight">
+            LegalX<span className="text-[#C9A227]">Online</span>
+          </span>
         </div>
         <div className="flex items-center gap-3">
           <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-slate-600'}`} />

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" fill="none">
+  <!-- Gold rounded-square background -->
+  <rect width="160" height="160" rx="32" fill="#C9A227"/>
+  <!-- LX mark in dark ink, centered in 160×160 box, scaled from 160×130 viewBox -->
+  <!-- L — vertical -->
+  <line x1="22" y1="28" x2="22" y2="118" stroke="#0A0D14" stroke-width="13" stroke-linecap="round"/>
+  <!-- L — horizontal foot -->
+  <line x1="22" y1="118" x2="62" y2="118" stroke="#0A0D14" stroke-width="13" stroke-linecap="round"/>
+  <!-- Small dash between L and X -->
+  <line x1="68" y1="118" x2="80" y2="118" stroke="#0A0D14" stroke-width="13" stroke-linecap="round"/>
+  <!-- X — top-left to bottom-right -->
+  <line x1="88" y1="28" x2="148" y2="118" stroke="#0A0D14" stroke-width="13" stroke-linecap="round"/>
+  <!-- X — top-right to bottom-left -->
+  <line x1="148" y1="28" x2="88" y2="118" stroke="#0A0D14" stroke-width="13" stroke-linecap="round"/>
+</svg>
