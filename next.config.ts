@@ -6,10 +6,19 @@ import type { NextConfig } from 'next'
 //
 // NEXT_PUBLIC_BACKEND_URL: client-side CSP header generation (build-time)
 // Set this in Vercel too, same value.
-const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
+// Production Render URL — used if env vars are not set on Vercel.
+// ALWAYS set BACKEND_URL on Vercel → https://legalx-backend-gl4b.onrender.com
+const RENDER_BACKEND = 'https://legalx-backend-gl4b.onrender.com'
+const isDev = process.env.NODE_ENV === 'development'
+
+const backendUrl = process.env.BACKEND_URL
+  || process.env.NEXT_PUBLIC_BACKEND_URL
+  || (isDev ? 'http://localhost:4000' : RENDER_BACKEND)
 
 // Build CSP dynamically so the Render backend host is always in connect-src
-const cspBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:4000'
+const cspBackendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
+  || process.env.BACKEND_URL
+  || (isDev ? 'http://localhost:4000' : RENDER_BACKEND)
 const backendHost = cspBackendUrl.startsWith('http')
   ? new URL(cspBackendUrl).origin
   : cspBackendUrl
