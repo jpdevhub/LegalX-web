@@ -3,7 +3,7 @@
 import { Suspense, useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { apiLogin, apiGetLawyerMe } from '@/lib/api'
 import { LXLogoMark } from '@/components/ui/LXLogo'
 
@@ -18,6 +18,15 @@ function LoginForm() {
   const redirectTo   = searchParams.get('redirect_to') || '/'
   const message      = searchParams.get('message')
   const mountedRef   = useRef(true)
+
+  // Shown after a successful password reset, then auto-dismissed.
+  const [resetToast, setResetToast] = useState(searchParams.get('reset') === 'success')
+
+  useEffect(() => {
+    if (!resetToast) return
+    const timer = setTimeout(() => setResetToast(false), 5000)
+    return () => clearTimeout(timer)
+  }, [resetToast])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -63,6 +72,35 @@ function LoginForm() {
         </div>
 
         <div className="px-8 py-7">
+          <AnimatePresence>
+            {resetToast && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: 'auto' }}
+                exit={{ opacity: 0, y: -8, height: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="overflow-hidden"
+              >
+                <div className="mb-5 p-3 flex items-start gap-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-300">
+                  <svg
+                    className="w-4 h-4 mt-0.5 flex-shrink-0"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    suppressHydrationWarning
+                  >
+                    <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                    <path d="M8 12.5l2.5 2.5L16 9.5" />
+                  </svg>
+                  Password updated. Sign in with your new password.
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {message && (
             <div className="mb-5 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-300">
               {message}
@@ -97,7 +135,7 @@ function LoginForm() {
                 <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wide" htmlFor="password">
                   Password
                 </label>
-                <Link href="#" className="text-xs text-[#D4AF37] hover:text-white transition-colors">
+                <Link href="/forgot-password" className="text-xs text-[#D4AF37] hover:text-white transition-colors">
                   Forgot password?
                 </Link>
               </div>

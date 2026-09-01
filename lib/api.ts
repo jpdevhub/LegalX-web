@@ -154,6 +154,31 @@ export async function apiLogout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' })
 }
 
+/**
+ * Request a password-recovery email. Resolves identically whether or not the
+ * address is registered — the backend deliberately does not disclose that.
+ * `origin` lets the backend build the reset link for whichever deployment the
+ * user is actually on (localhost, preview, production); it is validated
+ * server-side against the origin allowlist.
+ */
+export async function apiForgotPassword(email: string): Promise<{ message: string }> {
+  return apiFetch('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({
+      email,
+      origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+    }),
+  })
+}
+
+/** Complete recovery using the access token Supabase put in the URL hash. */
+export async function apiResetPassword(accessToken: string, password: string): Promise<{ message: string }> {
+  return apiFetch('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ accessToken, password }),
+  })
+}
+
 export async function apiGetMe(): Promise<AuthUser | null> {
   try {
     const data = await apiFetch<{ user: AuthUser }>('/api/auth/me')
