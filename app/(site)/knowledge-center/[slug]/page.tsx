@@ -15,7 +15,7 @@ export async function generateMetadata(
   if (!short) return { title: 'Not found | LegalXOnline' }
 
   return {
-    title: `${short.title} | LegalX Shorts`,
+    title: `${short.title} | LegalX Knowledge Center`,
     description: short.summary.slice(0, 160),
     openGraph: {
       title: short.title,
@@ -33,8 +33,8 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
   return (
     <div className="bg-[#0A0D14] min-h-[70vh] px-5 py-10">
       <article className="max-w-[680px] mx-auto">
-        <Link href="/shorts" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors mb-6">
-          ← All shorts
+        <Link href="/knowledge-center" className="inline-flex items-center gap-1.5 text-sm text-slate-400 hover:text-white transition-colors mb-6">
+          ← Knowledge Center
         </Link>
 
         <div className="flex items-center gap-2 flex-wrap mb-4">
@@ -82,7 +82,7 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
               rel="noopener noreferrer"
               className="px-4 h-10 inline-flex items-center rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-semibold transition-colors"
             >
-              Read the full judgment
+              Read the original source
             </a>
           )}
           <Link
@@ -94,7 +94,7 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
         </div>
 
         <p className="mt-8 text-[11px] text-slate-600 leading-relaxed">
-          This summary is drawn from the official court record and reviewed before publication.
+          This summary is drawn from the official source record and reviewed before publication.
           It is general information, not legal advice, and does not create a lawyer–client relationship.
         </p>
       </article>

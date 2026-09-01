@@ -664,6 +664,7 @@ export interface LegalShort {
   court: string | null
   judgment_date: string | null
   source_url: string | null
+  source_name: string | null
   tags: string[] | null
   likes_count: number
   published_at: string | null
@@ -700,15 +701,53 @@ export async function apiGetShort(slug: string): Promise<LegalShort | null> {
 
 export interface AdminShort extends LegalShort {
   is_published: boolean
+  review_status: 'pending' | 'approved' | 'rejected'
+  rejected_reason: string | null
+  /** Verbatim quote from the source. Verified server-side before the card exists. */
+  evidence: string | null
+  relevance_score: number | null
+  confidence: 'high' | 'medium' | 'low' | null
+  source_feed: string | null
+}
+
+export interface ShortsQueue extends Paginated<AdminShort> {
+  counts: { pending: number; approved: number; rejected: number }
 }
 
 export async function apiGetAdminShorts(
-  params: { status?: 'draft' | 'published' | 'all'; search?: string; page?: number; pageSize?: number } = {}
-): Promise<Paginated<AdminShort>> {
-  const data = await apiFetch<{ shorts: AdminShort[]; total: number; page: number; pageSize: number }>(
-    `/api/admin/shorts${buildQuery(params)}`
-  )
-  return { items: data.shorts, total: data.total, page: data.page, pageSize: data.pageSize }
+  params: { status?: 'pending' | 'approved' | 'rejected'; search?: string; page?: number; pageSize?: number } = {}
+): Promise<ShortsQueue> {
+  const data = await apiFetch<{
+    shorts: AdminShort[]; total: number; page: number; pageSize: number
+    counts: { pending: number; approved: number; rejected: number }
+  }>(`/api/admin/shorts${buildQuery(params)}`)
+  return {
+    items: data.shorts, total: data.total, page: data.page, pageSize: data.pageSize,
+    counts: data.counts,
+  }
+}
+
+/** Approve (publish) or reject a batch of suggestions in one action. */
+export async function apiBulkShorts(
+  ids: string[], action: 'approve' | 'reject', reason?: string
+): Promise<{ changed: number; skipped: number }> {
+  return apiFetch('/api/admin/shorts/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ ids, action, reason }),
+  })
+}
+
+// ── Archive ───────────────────────────────────────────────────────────────────
+
+export async function apiGetShortsArchive(
+  params: { month?: string; category?: string; page?: number; limit?: number } = {}
+): Promise<{ shorts: LegalShort[]; total: number; page: number; limit: number }> {
+  return apiFetch(`/api/shorts/archive${buildQuery(params)}`)
+}
+
+export async function apiGetShortsMonths(): Promise<{ month: string; count: number }[]> {
+  const data = await apiFetch<{ months: { month: string; count: number }[] }>('/api/shorts/months')
+  return data.months
 }
 
 export async function apiUpdateShort(
@@ -725,32 +764,34 @@ export async function apiDeleteShort(id: string): Promise<void> {
   await apiFetch(`/api/admin/shorts/${id}`, { method: 'DELETE' })
 }
 
-export interface ShortsFeedOption { id: string; label: string; withinDays: number | null }
+export interface ShortsFeedOption {
+  id: string; label: string; enabled: boolean
+  sourceName: string; licenceNote: string
+}
 
 export async function apiGetShortsFeeds(): Promise<ShortsFeedOption[]> {
   const data = await apiFetch<{ feeds: ShortsFeedOption[] }>('/api/admin/shorts/feeds')
   return data.feeds
 }
 
-export interface AutoIngestResult {
-  feed: string
-  created: number
-  skipped: number
-  failed: number
-  message?: string
-  failures: { tid: number; error: string }[]
+export interface IngestReport {
+  proposed: number
+  /** Candidates the grounding contract rejected, with the reason why. */
+  skipped: { title: string; reason: string }[]
+  failed: { url: string; error: string }[]
+  suggestions: { id: string; title: string; relevance_score: number | null; confidence: string | null }[]
 }
 
-export async function apiAutoIngestShorts(feed: string, limit = 3): Promise<AutoIngestResult> {
+export async function apiRunIngest(limit = 8, feeds?: string[]): Promise<IngestReport> {
   return apiFetch('/api/admin/shorts/auto-ingest', {
     method: 'POST',
-    body: JSON.stringify({ feed, limit }),
+    body: JSON.stringify({ limit, feeds }),
   })
 }
 
 export async function apiIngestShort(input: {
-  sourceUrl: string; rawText: string; court?: string; judgmentDate?: string
-}): Promise<{ short: AdminShort }> {
+  sourceUrl: string; rawText?: string; sourceName?: string
+}): Promise<{ short: { id: string; title: string } }> {
   return apiFetch('/api/admin/shorts/ingest', { method: 'POST', body: JSON.stringify(input) })
 }
 

@@ -34,7 +34,7 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export function ShortsFeed({
+export function KnowledgeFeed({
   initialShorts,
   initialCursor,
   initialHasMore,
@@ -179,7 +179,7 @@ export function ShortsFeed({
             {!hasMore && shorts.length > 0 && (
               <div className="h-[40vh] flex flex-col items-center justify-center text-center px-6 snap-start">
                 <p className="text-sm text-slate-400">You're all caught up.</p>
-                <p className="text-xs text-slate-600 mt-1">New updates are published every morning.</p>
+                <p className="text-xs text-slate-600 mt-1">Curated by our team every morning.</p>
                 <Link
                   href="/talk-to-lawyer"
                   className="mt-5 px-5 py-2.5 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors"
@@ -200,7 +200,7 @@ function ShortCard({ short }: { short: LegalShort }) {
 
   const share = async () => {
     const url = short.slug
-      ? `${window.location.origin}/shorts/${short.slug}`
+      ? `${window.location.origin}/knowledge-center/${short.slug}`
       : window.location.href
     // Native share sheet on mobile; clipboard everywhere else.
     if (navigator.share) {

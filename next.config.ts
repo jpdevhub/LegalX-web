@@ -50,6 +50,12 @@ const securityHeaders = [
   { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=()' },
 ]
 
+// /shorts was the original path; keep shared links working after the rename.
+const shortsRedirects = [
+  { source: '/shorts', destination: '/knowledge-center', permanent: true },
+  { source: '/shorts/:slug', destination: '/knowledge-center/:slug', permanent: true },
+]
+
 const nextConfig: NextConfig = {
   turbopack: {},
   async headers() {
@@ -71,6 +77,7 @@ const nextConfig: NextConfig = {
       { source: '/request', destination: '/documents', permanent: false },
       { source: '/consultation', destination: '/talk-to-lawyer', permanent: true },
       { source: '/contact', destination: '/about', permanent: false },
+      ...shortsRedirects,
     ]
   },
 }

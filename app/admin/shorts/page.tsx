@@ -1,14 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Sparkles, Plus, Trash2, ExternalLink, Check } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Sparkles, Plus, ExternalLink, Check, X, Quote } from 'lucide-react'
 import {
-  apiGetAdminShorts, apiUpdateShort, apiDeleteShort, apiGetShortsFeeds,
-  apiAutoIngestShorts, apiIngestShort,
-  type AdminShort, type ShortsFeedOption,
+  apiGetAdminShorts, apiUpdateShort, apiBulkShorts, apiGetShortsFeeds,
+  apiRunIngest, apiIngestShort,
+  type AdminShort, type ShortsFeedOption, type IngestReport,
 } from '@/lib/api'
 import {
-  StatusBadge, Modal, EmptyState, ErrorState, SkeletonRows,
+  Modal, ReasonModal, EmptyState, ErrorState, SkeletonRows,
   Pagination, Toast, formatDateTime,
 } from '@/components/admin/AdminUI'
 
@@ -19,19 +19,28 @@ const CATEGORIES = [
   'Tax', 'Labour', 'Constitutional', 'Consumer',
 ]
 
+const CONFIDENCE_TONE: Record<string, string> = {
+  high:   'bg-emerald-500/15 text-emerald-400 border-emerald-500/25',
+  medium: 'bg-amber-500/15 text-amber-400 border-amber-500/25',
+  low:    'bg-rose-500/15 text-rose-400 border-rose-500/25',
+}
+
 export default function AdminShortsPage() {
   const [shorts, setShorts] = useState<AdminShort[]>([])
+  const [counts, setCounts] = useState({ pending: 0, approved: 0, rejected: 0 })
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [status, setStatus] = useState<'draft' | 'published' | 'all'>('draft')
+  const [status, setStatus] = useState<'pending' | 'approved' | 'rejected'>('pending')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const [selected, setSelected] = useState<Set<string>>(new Set())
   const [feeds, setFeeds] = useState<ShortsFeedOption[]>([])
   const [showFetch, setShowFetch] = useState(false)
   const [showPaste, setShowPaste] = useState(false)
+  const [showReject, setShowReject] = useState(false)
   const [editing, setEditing] = useState<AdminShort | null>(null)
-  const [busyId, setBusyId] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState<{ msg: string; tone: 'success' | 'error' } | null>(null)
 
   const load = useCallback(async () => {
@@ -41,50 +50,64 @@ export default function AdminShortsPage() {
       const res = await apiGetAdminShorts({ status, page, pageSize: PAGE_SIZE })
       setShorts(res.items)
       setTotal(res.total)
+      setCounts(res.counts)
     } catch (err: any) {
-      setError(err?.message || 'Could not load shorts.')
+      setError(err?.message || 'Could not load the queue.')
     } finally {
       setLoading(false)
     }
   }, [status, page])
 
   useEffect(() => { load() }, [load])
-  useEffect(() => { setPage(1) }, [status])
+  useEffect(() => { setPage(1); setSelected(new Set()) }, [status])
   useEffect(() => { apiGetShortsFeeds().then(setFeeds).catch(() => {}) }, [])
 
-  const publish = async (s: AdminShort) => {
-    setBusyId(s.id)
+  const toggle = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
+
+  const allSelected = shorts.length > 0 && shorts.every(s => selected.has(s.id))
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(shorts.map(s => s.id)))
+
+  const runBulk = async (action: 'approve' | 'reject', reason?: string) => {
+    setBusy(true)
     try {
-      await apiUpdateShort(s.id, { isPublished: !s.is_published })
-      setToast({ msg: s.is_published ? 'Moved back to drafts.' : 'Published to the feed.', tone: 'success' })
+      const res = await apiBulkShorts([...selected], action, reason)
+      setToast({
+        msg: action === 'approve'
+          ? `Published ${res.changed} to the Knowledge Center.`
+          : `Rejected ${res.changed}.`,
+        tone: 'success',
+      })
+      setSelected(new Set())
+      setShowReject(false)
       await load()
     } catch (err: any) {
-      setToast({ msg: err?.message || 'Could not update.', tone: 'error' })
+      setToast({ msg: err?.message || 'Action failed.', tone: 'error' })
     } finally {
-      setBusyId(null)
+      setBusy(false)
     }
   }
 
-  const remove = async (s: AdminShort) => {
-    setBusyId(s.id)
-    try {
-      await apiDeleteShort(s.id)
-      setToast({ msg: 'Deleted.', tone: 'success' })
-      await load()
-    } catch (err: any) {
-      setToast({ msg: err?.message || 'Could not delete.', tone: 'error' })
-    } finally {
-      setBusyId(null)
-    }
-  }
+  const tabs = useMemo(() => ([
+    { id: 'pending' as const,  label: 'Suggestions', count: counts.pending },
+    { id: 'approved' as const, label: 'Published',   count: counts.approved },
+    { id: 'rejected' as const, label: 'Rejected',    count: counts.rejected },
+  ]), [counts])
 
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1.5">Legal Shorts</h1>
-          <p className="text-sm text-slate-400">
-            Drafts are AI-summarised from Indian Kanoon. Nothing reaches the public feed until you publish it.
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-1.5">Knowledge Center</h1>
+          <p className="text-sm text-slate-400 max-w-2xl">
+            The pipeline proposes more than you need — pick the best 3–4. Every suggestion
+            carries a verbatim quote from its source; anything the model could not ground
+            in the text was discarded before it reached this queue.
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -92,30 +115,60 @@ export default function AdminShortsPage() {
             onClick={() => setShowPaste(true)}
             className="inline-flex items-center gap-2 h-10 px-4 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-semibold transition-colors"
           >
-            <Plus size={15} /> Paste judgment
+            <Plus size={15} /> Add source
           </button>
           <button
             onClick={() => setShowFetch(true)}
             className="inline-flex items-center gap-2 h-10 px-4 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors"
           >
-            <Sparkles size={15} /> Fetch & summarise
+            <Sparkles size={15} /> Generate suggestions
           </button>
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/8 w-full sm:w-fit">
-        {(['draft', 'published', 'all'] as const).map(s => (
+      <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/8 w-full sm:w-fit overflow-x-auto">
+        {tabs.map(t => (
           <button
-            key={s}
-            onClick={() => setStatus(s)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold capitalize transition-colors ${
-              status === s ? 'bg-[#C9A227] text-[#0A0D14]' : 'text-slate-400 hover:text-white'
+            key={t.id}
+            onClick={() => setStatus(t.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              status === t.id ? 'bg-[#C9A227] text-[#0A0D14]' : 'text-slate-400 hover:text-white'
             }`}
           >
-            {s === 'draft' ? 'Review queue' : s}
+            {t.label}
+            {t.count > 0 && <span className="ml-1.5 opacity-70">{t.count}</span>}
           </button>
         ))}
       </div>
+
+      {/* Batch action bar */}
+      {status === 'pending' && selected.size > 0 && (
+        <div className="sticky top-0 z-20 flex items-center justify-between gap-3 p-3 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/30 backdrop-blur-md flex-wrap">
+          <p className="text-sm font-semibold text-[#D4AF37]">{selected.size} selected</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => runBulk('approve')}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <Check size={15} /> Approve & publish
+            </button>
+            <button
+              onClick={() => setShowReject(true)}
+              disabled={busy}
+              className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            >
+              <X size={15} /> Reject
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-medium transition-colors"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       {error ? (
         <ErrorState message={error} onRetry={load} />
@@ -123,67 +176,114 @@ export default function AdminShortsPage() {
         <SkeletonRows rows={5} />
       ) : shorts.length === 0 ? (
         <EmptyState
-          title={status === 'draft' ? 'Review queue is empty' : 'Nothing here'}
-          hint='Use "Fetch & summarise" to pull recent judgments from Indian Kanoon.'
+          title={status === 'pending' ? 'No suggestions waiting' : `Nothing ${status}`}
+          hint={status === 'pending' ? 'Use "Generate suggestions" to run the pipeline now.' : undefined}
         />
       ) : (
         <div className="space-y-3">
+          {status === 'pending' && (
+            <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer w-fit">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={toggleAll}
+                className="w-4 h-4 rounded accent-[#C9A227] cursor-pointer"
+              />
+              Select all on this page
+            </label>
+          )}
+
           {shorts.map(s => (
-            <div key={s.id} className="rounded-xl bg-white/[0.03] border border-white/8 p-4">
-              <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div
+              key={s.id}
+              className={`rounded-xl border p-4 transition-colors ${
+                selected.has(s.id)
+                  ? 'bg-[#C9A227]/[0.07] border-[#C9A227]/40'
+                  : 'bg-white/[0.03] border-white/8'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {status === 'pending' && (
+                  <input
+                    type="checkbox"
+                    checked={selected.has(s.id)}
+                    onChange={() => toggle(s.id)}
+                    className="mt-1 w-4 h-4 rounded accent-[#C9A227] cursor-pointer shrink-0"
+                  />
+                )}
+
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                    <StatusBadge status={s.is_published ? 'verified' : 'pending_signup'} />
-                    <span className="px-2 py-0.5 rounded bg-white/5 text-[11px] text-slate-400">{s.category}</span>
-                    {s.court && <span className="text-[11px] text-slate-500">{s.court}</span>}
+                  <div className="flex items-center gap-2 flex-wrap mb-2">
+                    <span className="px-2 py-0.5 rounded bg-white/5 text-[11px] text-slate-300">{s.category}</span>
+                    {s.relevance_score != null && (
+                      <span className="px-2 py-0.5 rounded bg-[#C9A227]/15 text-[11px] font-bold text-[#D4AF37]">
+                        Relevance {s.relevance_score}/5
+                      </span>
+                    )}
+                    {s.confidence && (
+                      <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold uppercase ${CONFIDENCE_TONE[s.confidence]}`}>
+                        {s.confidence} confidence
+                      </span>
+                    )}
+                    {s.source_name && (
+                      <span className="text-[11px] text-slate-500">{s.source_name}</span>
+                    )}
                   </div>
+
                   <p className="text-base font-semibold text-white">{s.title}</p>
-                  <p className="text-sm text-slate-400 mt-1.5 line-clamp-3">{s.summary}</p>
+                  <p className="text-sm text-slate-400 mt-1.5">{s.summary}</p>
+
                   {s.takeaway && (
-                    <p className="text-xs text-[#D4AF37] mt-2">💡 {s.takeaway}</p>
+                    <p className="text-sm text-[#D4AF37] mt-2">💡 {s.takeaway}</p>
                   )}
+
+                  {/* The grounding anchor. Shown so the editor can check the
+                      summary against the source in one glance. */}
+                  {s.evidence && (
+                    <div className="mt-3 flex gap-2 p-2.5 rounded-lg bg-black/30 border border-white/8">
+                      <Quote size={13} className="text-slate-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-slate-400 italic leading-relaxed">{s.evidence}</p>
+                    </div>
+                  )}
+
                   <p className="text-[11px] text-slate-600 mt-2">
-                    Ingested {formatDateTime(s.created_at)}
+                    {formatDateTime(s.created_at)}
                     {s.tags && s.tags.length > 0 && <> · {s.tags.join(', ')}</>}
                   </p>
-                </div>
-              </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  onClick={() => publish(s)}
-                  disabled={busyId === s.id}
-                  className={`inline-flex items-center gap-1.5 px-3 h-9 rounded-lg text-sm font-semibold transition-colors disabled:opacity-50 ${
-                    s.is_published
-                      ? 'border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200'
-                      : 'bg-emerald-500 hover:bg-emerald-400 text-white'
-                  }`}
-                >
-                  <Check size={14} /> {s.is_published ? 'Unpublish' : 'Publish'}
-                </button>
-                <button
-                  onClick={() => setEditing(s)}
-                  className="px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-semibold transition-colors"
-                >
-                  Edit
-                </button>
-                {s.source_url && (
-                  <a
-                    href={s.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-semibold transition-colors"
-                  >
-                    Source <ExternalLink size={13} />
-                  </a>
-                )}
-                <button
-                  onClick={() => remove(s)}
-                  disabled={busyId === s.id}
-                  className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-sm font-semibold transition-colors disabled:opacity-50 ml-auto"
-                >
-                  <Trash2 size={14} />
-                </button>
+                  {s.rejected_reason && (
+                    <p className="mt-2 text-xs text-rose-400">Rejected: {s.rejected_reason}</p>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      onClick={() => setEditing(s)}
+                      className="px-3 h-8 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold transition-colors"
+                    >
+                      Edit
+                    </button>
+                    {s.source_url && (
+                      <a
+                        href={s.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 h-8 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold transition-colors"
+                      >
+                        Source <ExternalLink size={12} />
+                      </a>
+                    )}
+                    {s.is_published && s.slug && (
+                      <a
+                        href={`/knowledge-center/${s.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 h-8 rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-emerald-300 text-xs font-semibold transition-colors"
+                      >
+                        View live
+                      </a>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           ))}
@@ -194,16 +294,26 @@ export default function AdminShortsPage() {
         <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
       )}
 
-      <FetchModal
+      <GenerateModal
         open={showFetch}
         feeds={feeds}
         onClose={() => setShowFetch(false)}
         onDone={async (msg, tone) => { setShowFetch(false); setToast({ msg, tone }); await load() }}
       />
-      <PasteModal
+      <AddSourceModal
         open={showPaste}
         onClose={() => setShowPaste(false)}
         onDone={async (msg, tone) => { setShowPaste(false); setToast({ msg, tone }); await load() }}
+      />
+      <ReasonModal
+        open={showReject}
+        title={`Reject ${selected.size} suggestion${selected.size === 1 ? '' : 's'}`}
+        label="Why?"
+        placeholder="Kept on record so the same item is not re-suggested tomorrow."
+        confirmLabel="Reject"
+        destructive
+        onCancel={() => setShowReject(false)}
+        onConfirm={reason => runBulk('reject', reason)}
       />
       <EditModal
         short={editing}
@@ -216,78 +326,95 @@ export default function AdminShortsPage() {
   )
 }
 
-// ── Fetch from Indian Kanoon ──────────────────────────────────────────────────
+// ── Generate suggestions ──────────────────────────────────────────────────────
 
-function FetchModal({ open, feeds, onClose, onDone }: {
+function GenerateModal({ open, feeds, onClose, onDone }: {
   open: boolean
   feeds: ShortsFeedOption[]
   onClose: () => void
   onDone: (msg: string, tone: 'success' | 'error') => void | Promise<void>
 }) {
-  const [feed, setFeed] = useState('supreme_court')
-  const [limit, setLimit] = useState(3)
+  const [limit, setLimit] = useState(8)
   const [busy, setBusy] = useState(false)
+  const [report, setReport] = useState<IngestReport | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { if (open) { setError(null); setBusy(false) } }, [open])
+  useEffect(() => { if (open) { setError(null); setBusy(false); setReport(null) } }, [open])
 
   const run = async () => {
     setBusy(true)
     setError(null)
     try {
-      const res = await apiAutoIngestShorts(feed, limit)
-      if (res.created === 0) {
-        setError(res.message || `Nothing new — ${res.skipped} already ingested, ${res.failed} failed.`)
+      const res = await apiRunIngest(limit)
+      setReport(res)
+      if (res.proposed === 0) {
+        setError('Nothing new proposed. See the reasons below.')
         setBusy(false)
         return
       }
-      await onDone(
-        `Created ${res.created} draft${res.created === 1 ? '' : 's'}${res.failed ? `, ${res.failed} failed` : ''}.`,
-        'success'
-      )
+      await onDone(`Proposed ${res.proposed} suggestion${res.proposed === 1 ? '' : 's'} for review.`, 'success')
     } catch (err: any) {
-      setError(err?.message || 'Fetch failed.')
+      setError(err?.message || 'Generation failed.')
       setBusy(false)
     }
   }
 
   return (
-    <Modal open={open} title="Fetch & summarise" onClose={busy ? () => {} : onClose}>
+    <Modal open={open} title="Generate suggestions" onClose={busy ? () => {} : onClose}>
       <p className="text-sm text-slate-400 mb-4">
-        Pulls recent documents from Indian Kanoon and summarises them into drafts.
-        Already-ingested judgments are skipped before any credit is spent.
+        Pulls from the enabled sources, summarises each under the grounding rules, and
+        files whatever survives for your review. Items already seen — including ones you
+        rejected before — are skipped.
       </p>
 
-      <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">Feed</label>
-      <select
-        value={feed}
-        onChange={e => setFeed(e.target.value)}
-        className="w-full h-11 px-3 rounded-lg bg-white/8 border border-white/15 text-white text-sm focus:outline-none focus:border-[#C9A227]/60 mb-4"
-      >
-        {feeds.map(f => (
-          <option key={f.id} value={f.id} className="bg-[#111318]">
-            {f.label}{f.withinDays ? ` · last ${f.withinDays}d` : ''}
-          </option>
-        ))}
-      </select>
+      {feeds.length > 0 && (
+        <div className="mb-4 p-3 rounded-lg bg-white/[0.03] border border-white/8">
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Active sources</p>
+          {feeds.filter(f => f.enabled).map(f => (
+            <div key={f.id} className="mb-1.5 last:mb-0">
+              <p className="text-xs text-slate-300">{f.label}</p>
+              <p className="text-[11px] text-slate-600">{f.licenceNote}</p>
+            </div>
+          ))}
+          {feeds.filter(f => f.enabled).length === 0 && (
+            <p className="text-xs text-rose-400">No sources enabled.</p>
+          )}
+        </div>
+      )}
 
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
-        How many
+        How many to propose
       </label>
       <input
         type="number"
         min={1}
-        max={10}
+        max={20}
         value={limit}
         onChange={e => setLimit(Number(e.target.value))}
         className="w-full h-11 px-3.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm focus:outline-none focus:border-[#C9A227]/60"
       />
       <p className="mt-1.5 text-xs text-slate-600">
-        Each one costs an Indian Kanoon call plus an LLM call. Keep it low — the free
-        summarisation tier is 8,000 tokens per minute.
+        Aim for roughly twice what you intend to publish. The free summarisation tier is
+        8,000 tokens per minute, so a large batch takes a few minutes.
       </p>
 
       {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
+
+      {report && (report.skipped.length > 0 || report.failed.length > 0) && (
+        <div className="mt-4 max-h-40 overflow-y-auto rounded-lg bg-black/30 border border-white/8 p-3">
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
+            Rejected by the grounding checks
+          </p>
+          {report.skipped.map((s, i) => (
+            <p key={i} className="text-[11px] text-slate-500 mb-1.5">
+              <span className="text-slate-400">{s.title}</span> — {s.reason}
+            </p>
+          ))}
+          {report.failed.map((f, i) => (
+            <p key={`f${i}`} className="text-[11px] text-rose-400/70 mb-1">{f.error}</p>
+          ))}
+        </div>
+      )}
 
       <div className="mt-5 flex gap-3">
         <button
@@ -295,42 +422,47 @@ function FetchModal({ open, feeds, onClose, onDone }: {
           disabled={busy}
           className="flex-1 h-11 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 font-semibold text-sm transition-colors disabled:opacity-50"
         >
-          Cancel
+          Close
         </button>
         <button
           onClick={run}
           disabled={busy}
           className="flex-1 h-11 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors disabled:opacity-60"
         >
-          {busy ? 'Fetching…' : 'Fetch'}
+          {busy ? 'Generating…' : 'Generate'}
         </button>
       </div>
     </Modal>
   )
 }
 
-// ── Paste a judgment manually ─────────────────────────────────────────────────
+// ── Add a source manually ─────────────────────────────────────────────────────
 
-function PasteModal({ open, onClose, onDone }: {
+function AddSourceModal({ open, onClose, onDone }: {
   open: boolean
   onClose: () => void
   onDone: (msg: string, tone: 'success' | 'error') => void | Promise<void>
 }) {
   const [sourceUrl, setSourceUrl] = useState('')
   const [rawText, setRawText] = useState('')
+  const [sourceName, setSourceName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (open) { setSourceUrl(''); setRawText(''); setError(null); setBusy(false) }
+    if (open) { setSourceUrl(''); setRawText(''); setSourceName(''); setError(null); setBusy(false) }
   }, [open])
 
   const submit = async () => {
     setBusy(true)
     setError(null)
     try {
-      await apiIngestShort({ sourceUrl: sourceUrl.trim(), rawText })
-      await onDone('Draft created.', 'success')
+      await apiIngestShort({
+        sourceUrl: sourceUrl.trim(),
+        rawText: rawText.trim() || undefined,
+        sourceName: sourceName.trim() || undefined,
+      })
+      await onDone('Suggestion created.', 'success')
     } catch (err: any) {
       setError(err?.message || 'Could not summarise.')
       setBusy(false)
@@ -338,9 +470,10 @@ function PasteModal({ open, onClose, onDone }: {
   }
 
   return (
-    <Modal open={open} title="Paste a judgment" onClose={busy ? () => {} : onClose}>
+    <Modal open={open} title="Add a source" onClose={busy ? () => {} : onClose}>
       <p className="text-sm text-slate-400 mb-4">
-        For judgments not on Indian Kanoon. Paste the text from the official court site.
+        Paste a URL and the backend will fetch it. For PDFs and captcha-gated portals,
+        also paste the text.
       </p>
 
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
@@ -349,21 +482,33 @@ function PasteModal({ open, onClose, onDone }: {
       <input
         value={sourceUrl}
         onChange={e => setSourceUrl(e.target.value)}
-        placeholder="https://www.sci.gov.in/..."
+        placeholder="https://pib.gov.in/..."
         className="w-full h-11 px-3.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/60 mb-4"
       />
 
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
-        Judgment text
+        Source name <span className="text-slate-600 normal-case font-normal">(optional)</span>
+      </label>
+      <input
+        value={sourceName}
+        onChange={e => setSourceName(e.target.value)}
+        placeholder="Supreme Court of India"
+        className="w-full h-11 px-3.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/60 mb-4"
+      />
+
+      <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
+        Text <span className="text-slate-600 normal-case font-normal">(optional — leave blank to fetch the URL)</span>
       </label>
       <textarea
         value={rawText}
         onChange={e => setRawText(e.target.value)}
-        rows={9}
-        placeholder="Paste the full judgment…"
+        rows={8}
+        placeholder="Paste the document text…"
         className="w-full px-3.5 py-2.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/60 resize-none"
       />
-      <p className="mt-1.5 text-xs text-slate-600">{rawText.length.toLocaleString()} characters (minimum 200)</p>
+      {rawText.length > 0 && (
+        <p className="mt-1.5 text-xs text-slate-600">{rawText.length.toLocaleString()} characters</p>
+      )}
 
       {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
 
@@ -377,7 +522,7 @@ function PasteModal({ open, onClose, onDone }: {
         </button>
         <button
           onClick={submit}
-          disabled={busy || rawText.length < 200 || !sourceUrl.trim()}
+          disabled={busy || !sourceUrl.trim()}
           className="flex-1 h-11 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors disabled:opacity-50"
         >
           {busy ? 'Summarising…' : 'Summarise'}
@@ -387,7 +532,7 @@ function PasteModal({ open, onClose, onDone }: {
   )
 }
 
-// ── Edit before publishing ────────────────────────────────────────────────────
+// ── Edit ──────────────────────────────────────────────────────────────────────
 
 function EditModal({ short, onClose, onDone }: {
   short: AdminShort | null
@@ -432,7 +577,16 @@ function EditModal({ short, onClose, onDone }: {
   }
 
   return (
-    <Modal open={!!short} title="Edit short" onClose={busy ? () => {} : onClose}>
+    <Modal open={!!short} title="Edit suggestion" onClose={busy ? () => {} : onClose}>
+      {short?.evidence && (
+        <div className="mb-4 p-3 rounded-lg bg-black/30 border border-white/8">
+          <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            Source quote — check your edit against this
+          </p>
+          <p className="text-xs text-slate-400 italic">{short.evidence}</p>
+        </div>
+      )}
+
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">Title</label>
       <input
         value={title}
@@ -474,7 +628,7 @@ function EditModal({ short, onClose, onDone }: {
           disabled={busy}
           className="flex-1 h-11 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 font-semibold text-sm transition-colors disabled:opacity-50"
         >
-          {busy ? 'Saving…' : 'Save draft'}
+          {busy ? 'Saving…' : 'Save'}
         </button>
         {short && !short.is_published && (
           <button
