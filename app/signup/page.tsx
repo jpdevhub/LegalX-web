@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { apiSignup } from '@/lib/api'
 import { LXLogoMark } from '@/components/ui/LXLogo'
+import { PasswordRules, isPasswordValid } from '@/components/ui/PasswordRules'
 
 export default function SignupPage() {
   const [role, setRole] = useState<'client' | 'lawyer'>('client')
@@ -13,12 +14,21 @@ export default function SignupPage() {
   const [lastName, setLastName]   = useState('')
   const [email, setEmail]         = useState('')
   const [password, setPassword]   = useState('')
+  const [revealPassword, setRevealPassword] = useState(false)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
   const router = useRouter()
 
+  const passwordOk = isPasswordValid(password)
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Mirrors the server rule so the user sees the problem inline rather than
+    // getting a generic "Validation failed" back from the API.
+    if (!passwordOk) {
+      setError('Please choose a password that meets all the requirements below.')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -148,25 +158,36 @@ export default function SignupPage() {
 
               {/* Password */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide" htmlFor="password">
-                  Password
-                </label>
+                <div className="flex justify-between items-center mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wide" htmlFor="password">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setRevealPassword((v) => !v)}
+                    className="text-xs text-slate-400 hover:text-[#D4AF37] transition-colors"
+                  >
+                    {revealPassword ? 'Hide' : 'Show'}
+                  </button>
+                </div>
                 <input
                   id="password"
-                  type="password"
+                  type={revealPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={8}
-                  placeholder="Min. 8 characters"
+                  autoComplete="new-password"
+                  placeholder="••••••••"
                   className="w-full h-11 px-3.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#D4AF37]/60 focus:bg-white/10 transition-all"
                 />
+                <PasswordRules password={password} className="mt-2.5" />
               </div>
 
               {/* Submit */}
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || !passwordOk}
                 className="w-full h-12 mt-2 rounded-xl bg-[#D4AF37] hover:bg-[#E5C050] text-[#080B12] font-bold text-sm tracking-wide transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {loading
