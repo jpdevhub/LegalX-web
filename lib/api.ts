@@ -264,8 +264,246 @@ export async function apiRejectLawyer(id: string, reason?: string): Promise<void
   })
 }
 
-export async function apiGetAdminStats(): Promise<{ verifiedLawyers: number; pendingApprovals: number }> {
+export interface AdminStats {
+  verifiedLawyers: number
+  pendingApprovals: number
+  suspendedLawyers: number
+  totalClients: number
+  openDisputes: number
+  pendingPayouts: number
+  slaBreaches: number
+  mtdRevenue: number
+  mtdConsultationRevenue: number
+  mtdDocumentRevenue: number
+}
+
+export async function apiGetAdminStats(): Promise<AdminStats> {
   return apiFetch('/api/admin/stats')
+}
+
+// ── Admin: lawyers ────────────────────────────────────────────────────────────
+
+export type LawyerVerificationStatus =
+  | 'unverified' | 'pending_signup' | 'pending_verification' | 'verified' | 'rejected' | 'suspended'
+
+export interface AdminLawyer {
+  account_id: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  phone: string | null
+  bar_council_number: string | null
+  bar_council_state: string | null
+  verification_status: LawyerVerificationStatus
+  specializations: string[] | null
+  consultation_types: string[] | null
+  document_services: string[] | null
+  avg_rating: number | null
+  total_reviews: number | null
+  consultation_fee_chat: number | null
+  consultation_fee_voice: number | null
+  consultation_fee_video: number | null
+  enrolment_cert_url: string | null
+  bar_id_front_url: string | null
+  bar_id_back_url: string | null
+  govt_id_url: string | null
+  profile_photo_url: string | null
+  rejection_reason: string | null
+  onboarding_complete: boolean | null
+  created_at: string
+}
+
+export interface Paginated<T> {
+  total: number
+  page: number
+  pageSize: number
+  items: T[]
+}
+
+export interface AdminLawyerListParams {
+  status?: LawyerVerificationStatus | 'all'
+  search?: string
+  page?: number
+  pageSize?: number
+  // Index signature so this can be handed straight to buildQuery.
+  [key: string]: string | number | undefined
+}
+
+function buildQuery(params: Record<string, string | number | undefined | null>): string {
+  const qs = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') qs.set(key, String(value))
+  }
+  const str = qs.toString()
+  return str ? `?${str}` : ''
+}
+
+export async function apiGetAdminLawyers(params: AdminLawyerListParams = {}): Promise<Paginated<AdminLawyer>> {
+  const data = await apiFetch<{ lawyers: AdminLawyer[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/lawyers${buildQuery(params)}`
+  )
+  return { items: data.lawyers, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+export interface DisciplinaryFlag {
+  id: string
+  type: 'complaint' | 'warning' | 'suspension' | 'reinstatement'
+  reason: string
+  flagged_by: string
+  created_at: string
+}
+
+export interface AdminLawyerDetail {
+  profile: AdminLawyer & Record<string, any>
+  account: { status: string; last_login_at: string | null; created_at: string } | null
+  bank: {
+    account_holder_name: string | null
+    bank_name: string | null
+    ifsc_code: string | null
+    gst_number: string | null
+    is_verified: boolean | null
+    updated_at: string | null
+  } | null
+  flags: DisciplinaryFlag[]
+  docs: Record<string, string | null>
+}
+
+export async function apiGetAdminLawyer(id: string): Promise<AdminLawyerDetail> {
+  return apiFetch<AdminLawyerDetail>(`/api/admin/lawyers/${id}`)
+}
+
+export async function apiSuspendLawyer(id: string, reason: string): Promise<void> {
+  await apiFetch(`/api/admin/lawyers/${id}/suspend`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function apiReinstateLawyer(id: string, reason?: string): Promise<void> {
+  await apiFetch(`/api/admin/lawyers/${id}/reinstate`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function apiFlagLawyer(
+  id: string,
+  type: DisciplinaryFlag['type'],
+  reason: string
+): Promise<{ flag: DisciplinaryFlag }> {
+  return apiFetch(`/api/admin/lawyers/${id}/flag`, {
+    method: 'POST',
+    body: JSON.stringify({ type, reason }),
+  })
+}
+
+export interface BulkResult {
+  succeeded: string[]
+  failed: { id: string; error: string }[]
+}
+
+export async function apiBulkLawyerAction(
+  ids: string[],
+  action: 'approve' | 'reject',
+  reason?: string
+): Promise<BulkResult> {
+  return apiFetch('/api/admin/lawyers/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ ids, action, reason }),
+  })
+}
+
+// ── Admin: clients ────────────────────────────────────────────────────────────
+
+export interface AdminClient {
+  id: string
+  email: string
+  phone: string | null
+  first_name: string | null
+  last_name: string | null
+  status: string
+  created_at: string
+  last_login_at: string | null
+  wallet_balance: number
+}
+
+export async function apiGetAdminClients(
+  params: { search?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AdminClient>> {
+  const data = await apiFetch<{ clients: AdminClient[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/clients${buildQuery(params)}`
+  )
+  return { items: data.clients, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+export interface WalletTransaction {
+  id: string
+  type: 'credit' | 'debit'
+  amount: number
+  balance_after: number
+  reference_type: string | null
+  reference_id: string | null
+  note: string | null
+  created_at: string
+}
+
+export interface AdminClientDetail {
+  account: {
+    id: string
+    email: string
+    phone: string | null
+    first_name: string | null
+    last_name: string | null
+    role: string
+    status: string
+    created_at: string
+    last_login_at: string | null
+  }
+  wallet: { id: string; balance: number; currency: string; updated_at: string } | null
+  transactions: WalletTransaction[]
+  disputes: { id: string; reason: string; status: string; created_at: string; resolution_note: string | null }[]
+  consultations: { id: string; type: string; status: string; total_amount: number | null; started_at: string | null }[]
+  lifetimeSpend: number
+}
+
+export async function apiGetAdminClient(id: string): Promise<AdminClientDetail> {
+  return apiFetch<AdminClientDetail>(`/api/admin/clients/${id}`)
+}
+
+export async function apiAdjustClientWallet(
+  id: string,
+  amount: number,
+  type: 'credit' | 'debit',
+  reason: string
+): Promise<{ balance: number; previousBalance: number }> {
+  return apiFetch(`/api/admin/clients/${id}/wallet`, {
+    method: 'PATCH',
+    body: JSON.stringify({ amount, type, reason }),
+  })
+}
+
+// ── Admin: audit log ──────────────────────────────────────────────────────────
+
+export interface AuditEntry {
+  id: string
+  admin_id: string
+  admin_name: string
+  action: string
+  entity_type: string
+  entity_id: string | null
+  before_data: Record<string, any> | null
+  after_data: Record<string, any> | null
+  ip_address: string | null
+  created_at: string
+}
+
+export async function apiGetAuditLog(
+  params: { entity_type?: string; from?: string; to?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AuditEntry>> {
+  const data = await apiFetch<{ entries: AuditEntry[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/audit-log${buildQuery(params)}`
+  )
+  return { items: data.entries, total: data.total, page: data.page, pageSize: data.pageSize }
 }
 
 // ── Lawyer Onboarding ─────────────────────────────────────────────────────────

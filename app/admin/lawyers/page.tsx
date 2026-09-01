@@ -1,494 +1,560 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Check, X, Search, ExternalLink, Eye, AlertCircle, FileText, Image, ChevronDown } from 'lucide-react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { Search, Check, X, MessageSquare, Star } from 'lucide-react'
 import {
-  apiGetPendingLawyers, apiApproveLawyer, apiRejectLawyer,
-  apiGetLawyerDocs, type PendingLawyer, type LawyerDocs
+  apiGetAdminLawyers, apiApproveLawyer, apiRejectLawyer,
+  apiBulkLawyerAction, apiReinstateLawyer, apiFlagLawyer,
+  type AdminLawyer,
 } from '@/lib/api'
+import {
+  StatusBadge, ReasonModal, EmptyState, ErrorState, SkeletonRows,
+  Pagination, Toast, formatDate, formatAge, hoursSince, fullName, formatCurrency,
+} from '@/components/admin/AdminUI'
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    pending_verification: { label: 'Pending Review', cls: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
-    verified:  { label: 'Approved', cls: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-    rejected:  { label: 'Rejected',  cls: 'bg-rose-500/10 text-rose-400 border-rose-500/20' },
-  }
-  const s = map[status] ?? { label: status, cls: 'bg-slate-500/10 text-slate-400 border-slate-500/20' }
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${s.cls}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${status === 'pending_verification' ? 'animate-pulse bg-amber-400' : status === 'verified' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
-      {s.label}
-    </span>
-  )
+type Tab = 'queue' | 'directory' | 'suspended'
+
+const TABS: { id: Tab; label: string; status: string }[] = [
+  { id: 'queue',     label: 'Verification Queue', status: 'pending_verification' },
+  { id: 'directory', label: 'Directory',          status: 'all' },
+  { id: 'suspended', label: 'Suspended',          status: 'suspended' },
+]
+
+const PAGE_SIZE = 20
+
+/** SLA colour by wait time: green < 12h, amber 12–24h, red > 24h. */
+function slaTone(createdAt: string) {
+  const h = hoursSince(createdAt)
+  if (h > 24) return { text: 'text-rose-400',    bg: 'bg-rose-500/10 border-rose-500/25' }
+  if (h > 12) return { text: 'text-amber-400',   bg: 'bg-amber-500/10 border-amber-500/25' }
+  return { text: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/25' }
 }
 
-function DocLink({ label, url, type }: { label: string; url: string | null; type: 'image' | 'pdf' | 'auto' }) {
-  if (!url) {
-    return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/3 border border-white/8 text-slate-600 text-sm">
-        <AlertCircle size={14} />
-        <span>{label} — not uploaded</span>
-      </div>
-    )
-  }
-  const Icon = type === 'pdf' ? FileText : Image
-  return (
-    <a
-      href={url} target="_blank" rel="noopener noreferrer"
-      className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-white/5 border border-white/10
-        hover:border-[#C9A227]/40 hover:bg-[#C9A227]/5 transition-all group"
-    >
-      <div className="flex items-center gap-2">
-        <Icon size={14} className="text-slate-400 group-hover:text-[#C9A227] transition-colors" />
-        <span className="text-sm text-slate-300 group-hover:text-white transition-colors">{label}</span>
-      </div>
-      <ExternalLink size={12} className="text-slate-600 group-hover:text-[#C9A227] transition-colors" />
-    </a>
-  )
+function docCount(l: AdminLawyer): number {
+  return [l.enrolment_cert_url, l.bar_id_front_url, l.bar_id_back_url, l.govt_id_url]
+    .filter(Boolean).length
 }
 
-// ── Main Component ────────────────────────────────────────────────────────────
-export default function LawyerManagement() {
-  const [lawyers, setLawyers] = useState<PendingLawyer[]>([])
+function AdminLawyersInner() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const initialTab = (searchParams.get('tab') as Tab) || 'queue'
+  const [tab, setTab] = useState<Tab>(TABS.some(t => t.id === initialTab) ? initialTab : 'queue')
+
+  const [lawyers, setLawyers] = useState<AdminLawyer[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [actionLoading, setActionLoading] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
-  // Document viewer modal
-  const [docsModal, setDocsModal] = useState<{ lawyerId: string; lawyer: PendingLawyer } | null>(null)
-  const [docsData, setDocsData] = useState<LawyerDocs | null>(null)
-  const [docsLoading, setDocsLoading] = useState(false)
-  const [docsError, setDocsError] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [specFilter, setSpecFilter] = useState<string>('all')
 
-  // Reject modal
-  const [rejectModal, setRejectModal] = useState<PendingLawyer | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [rejectSubmitting, setRejectSubmitting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ msg: string; tone: 'success' | 'error' } | null>(null)
 
-  useEffect(() => { loadLawyers() }, [])
+  const [rejectTarget, setRejectTarget] = useState<AdminLawyer | null>(null)
+  const [infoTarget, setInfoTarget] = useState<AdminLawyer | null>(null)
+  const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | null>(null)
 
-  async function loadLawyers() {
+  // Debounce so typing doesn't fire a request per keystroke.
+  useEffect(() => {
+    const timer = setTimeout(() => { setSearch(searchInput); setPage(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [searchInput])
+
+  const effectiveStatus = useMemo(() => {
+    if (tab === 'queue') return 'pending_verification'
+    if (tab === 'suspended') return 'suspended'
+    return statusFilter === 'all' ? 'all' : statusFilter
+  }, [tab, statusFilter])
+
+  const load = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
-      const data = await apiGetPendingLawyers()
-      setLawyers(data)
-    } catch {
-      setLawyers([])
+      const res = await apiGetAdminLawyers({
+        status: effectiveStatus as any,
+        search: search || undefined,
+        page,
+        pageSize: PAGE_SIZE,
+      })
+      setLawyers(res.items)
+      setTotal(res.total)
+    } catch (err: any) {
+      setError(err?.message || 'Could not load lawyers.')
     } finally {
       setLoading(false)
     }
+  }, [effectiveStatus, search, page])
+
+  useEffect(() => { load() }, [load])
+
+  const switchTab = (next: Tab) => {
+    setTab(next); setPage(1); setSelected(new Set())
+    setStatusFilter('all'); setSpecFilter('all')
+    router.replace(next === 'queue' ? '/admin/lawyers' : `/admin/lawyers?tab=${next}`)
   }
 
-  function showToast(msg: string, type: 'success' | 'error') {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 4000)
+  // Specialization options come from the loaded page — no separate endpoint.
+  const specOptions = useMemo(() => {
+    const set = new Set<string>()
+    for (const l of lawyers) for (const s of l.specializations ?? []) set.add(s)
+    return [...set].sort()
+  }, [lawyers])
+
+  const visible = useMemo(() => {
+    if (tab !== 'directory' || specFilter === 'all') return lawyers
+    return lawyers.filter(l => (l.specializations ?? []).includes(specFilter))
+  }, [lawyers, tab, specFilter])
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
-  async function openDocsModal(lawyer: PendingLawyer) {
-    setDocsModal({ lawyerId: lawyer.account_id, lawyer })
-    setDocsData(null)
-    setDocsError('')
-    setDocsLoading(true)
+  const allSelected = visible.length > 0 && visible.every(l => selected.has(l.account_id))
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? new Set() : new Set(visible.map(l => l.account_id)))
+  }
+
+  const approve = async (l: AdminLawyer) => {
+    setBusyId(l.account_id)
     try {
-      const data = await apiGetLawyerDocs(lawyer.account_id)
-      setDocsData(data)
-    } catch (e: any) {
-      setDocsError(e.message || 'Failed to load documents')
+      await apiApproveLawyer(l.account_id)
+      setToast({ msg: `${fullName(l.first_name, l.last_name)} approved.`, tone: 'success' })
+      await load()
+    } catch (err: any) {
+      setToast({ msg: err?.message || 'Approval failed.', tone: 'error' })
     } finally {
-      setDocsLoading(false)
+      setBusyId(null)
     }
   }
 
-  async function handleApprove(id: string) {
-    setActionLoading(id)
+  const reject = async (reason: string) => {
+    if (!rejectTarget) return
+    await apiRejectLawyer(rejectTarget.account_id, reason)
+    setToast({ msg: `${fullName(rejectTarget.first_name, rejectTarget.last_name)} rejected.`, tone: 'success' })
+    setRejectTarget(null)
+    await load()
+  }
+
+  const requestInfo = async (reason: string) => {
+    if (!infoTarget) return
+    await apiFlagLawyer(infoTarget.account_id, 'complaint', `Information requested: ${reason}`)
+    setToast({ msg: 'Information request recorded.', tone: 'success' })
+    setInfoTarget(null)
+    await load()
+  }
+
+  const reinstate = async (l: AdminLawyer) => {
+    setBusyId(l.account_id)
     try {
-      await apiApproveLawyer(id)
-      setLawyers(prev => prev.filter(l => l.account_id !== id))
-      setDocsModal(null)
-      showToast('Lawyer approved. Confirmation email sent.', 'success')
-    } catch (e: any) {
-      showToast(e.message || 'Approval failed. Please try again.', 'error')
+      await apiReinstateLawyer(l.account_id)
+      setToast({ msg: `${fullName(l.first_name, l.last_name)} reinstated.`, tone: 'success' })
+      await load()
+    } catch (err: any) {
+      setToast({ msg: err?.message || 'Reinstatement failed.', tone: 'error' })
     } finally {
-      setActionLoading(null)
+      setBusyId(null)
     }
   }
 
-  async function handleRejectSubmit() {
-    if (!rejectModal) return
-    if (!rejectReason.trim()) return
-    setRejectSubmitting(true)
-    try {
-      await apiRejectLawyer(rejectModal.account_id, rejectReason.trim())
-      setLawyers(prev => prev.filter(l => l.account_id !== rejectModal.account_id))
-      setDocsModal(null)
-      setRejectModal(null)
-      setRejectReason('')
-      showToast('Application rejected. Lawyer notified with reason.', 'error')
-    } catch (e: any) {
-      showToast(e.message || 'Rejection failed. Please try again.', 'error')
-    } finally {
-      setRejectSubmitting(false)
-    }
+  const runBulk = async (reason?: string) => {
+    if (!bulkAction) return
+    const ids = [...selected]
+    const res = await apiBulkLawyerAction(ids, bulkAction, reason)
+    const verb = bulkAction === 'approve' ? 'approved' : 'rejected'
+    setToast({
+      msg: res.failed.length
+        ? `${res.succeeded.length} ${verb}, ${res.failed.length} failed.`
+        : `${res.succeeded.length} ${verb}.`,
+      tone: res.failed.length ? 'error' : 'success',
+    })
+    setBulkAction(null)
+    setSelected(new Set())
+    await load()
   }
-
-  const filtered = lawyers.filter(l =>
-    `${l.first_name} ${l.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    l.bar_council_number?.toLowerCase().includes(searchTerm.toLowerCase())
-  )
 
   return (
-    <div className="space-y-6 relative">
-
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: -16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -16 }}
-            className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-lg text-sm font-medium shadow-xl backdrop-blur-md border ${
-              toast.type === 'success'
-                ? 'bg-emerald-900/80 border-emerald-500/30 text-emerald-200'
-                : 'bg-rose-900/80 border-rose-500/30 text-rose-200'
-            }`}
-          >
-            {toast.msg}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Lawyer Applications</h1>
-          <p className="text-slate-400 text-sm mt-0.5">
-            {loading ? 'Loading…' : `${filtered.length} pending verification`}
-          </p>
-        </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={15} />
-          <input
-            type="text"
-            placeholder="Search by name, email or Bar ID…"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full h-10 pl-9 pr-4 rounded-lg bg-white/5 border border-white/10 text-white text-sm
-              placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/40 transition-colors"
-          />
-        </div>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-1.5">Lawyers</h1>
+        <p className="text-sm text-slate-400">Review applications, manage the directory, handle suspensions.</p>
       </div>
 
-      {/* Table */}
-      <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden">
-        {loading ? (
-          <div className="p-16 text-center">
-            <div className="w-8 h-8 border-2 border-[#D4AF37]/30 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-slate-500 text-sm">Loading applications…</p>
+      {/* Tabs */}
+      <div className="flex gap-1 p-1 rounded-xl bg-white/[0.03] border border-white/8 w-full sm:w-fit overflow-x-auto">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            onClick={() => switchTab(t.id)}
+            className={`relative px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors ${
+              tab === t.id ? 'text-[#0A0D14]' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            {tab === t.id && (
+              <motion.span
+                layoutId="lawyerTab"
+                className="absolute inset-0 bg-[#C9A227] rounded-lg"
+                transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10">{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+          <input
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            placeholder="Search name, email, or bar number…"
+            className="w-full h-11 pl-9 pr-3.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/60 transition-all"
+          />
+        </div>
+
+        {tab === 'directory' && (
+          <>
+            <select
+              value={statusFilter}
+              onChange={e => { setStatusFilter(e.target.value); setPage(1) }}
+              className="h-11 px-3 rounded-lg bg-white/8 border border-white/15 text-white text-sm focus:outline-none focus:border-[#C9A227]/60"
+            >
+              <option value="all" className="bg-[#111318]">All statuses</option>
+              <option value="verified" className="bg-[#111318]">Verified</option>
+              <option value="pending_verification" className="bg-[#111318]">Pending</option>
+              <option value="rejected" className="bg-[#111318]">Rejected</option>
+              <option value="suspended" className="bg-[#111318]">Suspended</option>
+              <option value="unverified" className="bg-[#111318]">Unverified</option>
+            </select>
+
+            <select
+              value={specFilter}
+              onChange={e => setSpecFilter(e.target.value)}
+              className="h-11 px-3 rounded-lg bg-white/8 border border-white/15 text-white text-sm focus:outline-none focus:border-[#C9A227]/60"
+            >
+              <option value="all" className="bg-[#111318]">All specializations</option>
+              {specOptions.map(s => (
+                <option key={s} value={s} className="bg-[#111318]">{s}</option>
+              ))}
+            </select>
+          </>
+        )}
+      </div>
+
+      {/* Bulk bar */}
+      {tab === 'queue' && selected.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#C9A227]/10 border border-[#C9A227]/25 flex-wrap"
+        >
+          <p className="text-sm text-[#D4AF37] font-semibold">{selected.size} selected</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBulkAction('approve')}
+              className="px-3 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors"
+            >
+              Bulk Approve
+            </button>
+            <button
+              onClick={() => setBulkAction('reject')}
+              className="px-3 h-9 rounded-lg bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold transition-colors"
+            >
+              Bulk Reject
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-medium transition-colors"
+            >
+              Clear
+            </button>
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-4">
-              <Check size={20} className="text-emerald-400" />
+        </motion.div>
+      )}
+
+      {/* Content */}
+      {error ? (
+        <ErrorState message={error} onRetry={load} />
+      ) : loading ? (
+        <SkeletonRows rows={6} />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          title={
+            tab === 'queue' ? 'Verification queue is clear'
+            : tab === 'suspended' ? 'No suspended lawyers'
+            : 'No lawyers match your filters'
+          }
+          hint={tab === 'queue' ? 'New applications will appear here as they are submitted.' : undefined}
+        />
+      ) : tab === 'queue' ? (
+        <div className="space-y-3">
+          <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer w-fit">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              onChange={toggleSelectAll}
+              className="w-4 h-4 rounded accent-[#C9A227] cursor-pointer"
+            />
+            Select all on this page
+          </label>
+
+          {visible.map((l, i) => {
+            const sla = slaTone(l.created_at)
+            const busy = busyId === l.account_id
+            return (
+              <motion.div
+                key={l.account_id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.03, 0.2), duration: 0.3 }}
+                className="rounded-xl bg-white/[0.03] border border-white/8 p-4"
+              >
+                <div className="flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(l.account_id)}
+                    onChange={() => toggleSelect(l.account_id)}
+                    className="mt-1 w-4 h-4 rounded accent-[#C9A227] cursor-pointer shrink-0"
+                  />
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="min-w-0">
+                        <Link
+                          href={`/admin/lawyers/${l.account_id}`}
+                          className="text-base font-semibold text-white hover:text-[#D4AF37] transition-colors"
+                        >
+                          {fullName(l.first_name, l.last_name)}
+                        </Link>
+                        <p className="text-xs text-slate-500 mt-0.5 truncate">{l.email}</p>
+                      </div>
+                      <span className={`shrink-0 px-2.5 py-1 rounded-full border text-[11px] font-bold ${sla.bg} ${sla.text}`}>
+                        Waiting {formatAge(l.created_at)}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-400">
+                      <span>Bar: <span className="text-slate-200">{l.bar_council_number || '—'}</span></span>
+                      <span>State: <span className="text-slate-200">{l.bar_council_state || '—'}</span></span>
+                      <span>
+                        Docs: <span className={docCount(l) === 4 ? 'text-emerald-400' : 'text-amber-400'}>
+                          {docCount(l)}/4
+                        </span>
+                      </span>
+                      <span>Applied: <span className="text-slate-200">{formatDate(l.created_at)}</span></span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => approve(l)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <Check size={15} /> Approve
+                      </button>
+                      <button
+                        onClick={() => setRejectTarget(l)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+                      >
+                        <X size={15} /> Reject
+                      </button>
+                      <button
+                        onClick={() => setInfoTarget(l)}
+                        disabled={busy}
+                        className="inline-flex items-center gap-1.5 px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-medium transition-colors disabled:opacity-50"
+                      >
+                        <MessageSquare size={15} /> Request Info
+                      </button>
+                      <Link
+                        href={`/admin/lawyers/${l.account_id}`}
+                        className="inline-flex items-center px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-sm font-medium transition-colors"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      ) : tab === 'suspended' ? (
+        <div className="space-y-3">
+          {visible.map(l => (
+            <div key={l.account_id} className="rounded-xl bg-white/[0.03] border border-white/8 p-4 flex items-start justify-between gap-4 flex-wrap">
+              <div className="min-w-0">
+                <Link
+                  href={`/admin/lawyers/${l.account_id}`}
+                  className="text-base font-semibold text-white hover:text-[#D4AF37] transition-colors"
+                >
+                  {fullName(l.first_name, l.last_name)}
+                </Link>
+                <p className="text-xs text-slate-500 mt-0.5">{l.email}</p>
+                <p className="text-xs text-slate-400 mt-2">
+                  Bar: <span className="text-slate-200">{l.bar_council_number || '—'}</span>
+                  <span className="mx-2 text-slate-700">·</span>
+                  Joined <span className="text-slate-200">{formatDate(l.created_at)}</span>
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Full suspension history is on the lawyer's detail page.
+                </p>
+              </div>
+              <button
+                onClick={() => reinstate(l)}
+                disabled={busyId === l.account_id}
+                className="shrink-0 px-3 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+              >
+                {busyId === l.account_id ? 'Working…' : 'Reinstate'}
+              </button>
             </div>
-            <p className="text-slate-300 font-medium">All caught up</p>
-            <p className="text-slate-600 text-sm mt-1">No pending lawyer applications.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="text-xs uppercase bg-white/5 text-slate-400 border-b border-white/10">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Lawyer</th>
-                  <th className="px-6 py-4 font-medium">Bar Council</th>
-                  <th className="px-6 py-4 font-medium">Submitted</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
+          ))}
+        </div>
+      ) : (
+        /* Directory — table on desktop, cards on mobile */
+        <>
+          <div className="hidden md:block rounded-xl bg-white/[0.03] border border-white/8 overflow-x-auto">
+            <table className="w-full text-sm min-w-[760px]">
+              <thead>
+                <tr className="border-b border-white/8 text-left">
+                  {['Name', 'Status', 'Services', 'Rating', 'Fee (chat)', 'Joined'].map(h => (
+                    <th key={h} className="px-4 py-3 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
-              <tbody>
-                <AnimatePresence>
-                  {filtered.map(lawyer => (
-                    <motion.tr
-                      key={lawyer.account_id}
-                      layout
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0, x: -40 }}
-                      transition={{ duration: 0.2 }}
-                      className="border-b border-white/5 hover:bg-white/3 transition-colors"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-[#C9A227]/20 flex items-center justify-center flex-shrink-0">
-                            <span className="text-[#C9A227] text-xs font-bold">
-                              {lawyer.first_name?.[0]}{lawyer.last_name?.[0]}
-                            </span>
-                          </div>
-                          <div>
-                            <div className="font-medium text-white">{lawyer.first_name} {lawyer.last_name}</div>
-                            <div className="text-xs text-slate-500">{lawyer.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-slate-300 text-xs bg-white/5 px-2 py-1 rounded">
-                          {lawyer.bar_council_number || '—'}
+              <tbody className="divide-y divide-white/5">
+                {visible.map(l => (
+                  <tr
+                    key={l.account_id}
+                    onClick={() => router.push(`/admin/lawyers/${l.account_id}`)}
+                    className="hover:bg-white/[0.03] cursor-pointer transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-white">{fullName(l.first_name, l.last_name)}</p>
+                      <p className="text-xs text-slate-500 truncate max-w-[220px]">{l.email}</p>
+                    </td>
+                    <td className="px-4 py-3"><StatusBadge status={l.verification_status} /></td>
+                    <td className="px-4 py-3 text-slate-300 text-xs">
+                      {[
+                        (l.consultation_types?.length ?? 0) > 0 ? 'Consult' : null,
+                        (l.document_services?.length ?? 0) > 0 ? 'Docs' : null,
+                      ].filter(Boolean).join(' · ') || '—'}
+                    </td>
+                    <td className="px-4 py-3">
+                      {l.avg_rating ? (
+                        <span className="inline-flex items-center gap-1 text-slate-200">
+                          <Star size={13} className="text-[#D4AF37] fill-[#D4AF37]" />
+                          {Number(l.avg_rating).toFixed(1)}
+                          <span className="text-slate-600 text-xs">({l.total_reviews ?? 0})</span>
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-400">
-                        {new Date(lawyer.created_at).toLocaleDateString('en-IN', {
-                          day: 'numeric', month: 'short', year: 'numeric'
-                        })}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={lawyer.verification_status} />
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => openDocsModal(lawyer)}
-                            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium
-                              bg-white/5 border border-white/10 text-slate-300 hover:border-[#C9A227]/40 hover:text-[#C9A227] transition-all"
-                          >
-                            <Eye size={13} />
-                            Documents
-                          </button>
-                          <button
-                            onClick={() => handleApprove(lawyer.account_id)}
-                            disabled={actionLoading === lawyer.account_id}
-                            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium
-                              bg-emerald-500/10 border border-emerald-500/20 text-emerald-400
-                              hover:bg-emerald-500/20 transition-all disabled:opacity-50"
-                          >
-                            {actionLoading === lawyer.account_id
-                              ? <span className="w-3 h-3 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-                              : <Check size={13} />}
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => { setRejectModal(lawyer); setRejectReason('') }}
-                            disabled={actionLoading === lawyer.account_id}
-                            className="flex items-center gap-1.5 h-8 px-3 rounded-lg text-xs font-medium
-                              bg-rose-500/10 border border-rose-500/20 text-rose-400
-                              hover:bg-rose-500/20 transition-all disabled:opacity-50"
-                          >
-                            <X size={13} />
-                            Reject
-                          </button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                      ) : <span className="text-slate-600">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-slate-200 tabular-nums">
+                      {l.consultation_fee_chat ? formatCurrency(l.consultation_fee_chat) : '—'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400 whitespace-nowrap">{formatDate(l.created_at)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
 
-      {/* ── Document Viewer Modal ─────────────────────────────────────────── */}
-      <AnimatePresence>
-        {docsModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => setDocsModal(null)}
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-xl bg-[#0A0D14] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-10"
-            >
-              {/* Modal header */}
-              <div className="flex justify-between items-center px-6 py-4 border-b border-white/10">
-                <div>
-                  <h3 className="font-semibold text-white">
-                    {docsModal.lawyer.first_name} {docsModal.lawyer.last_name}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">{docsModal.lawyer.email}</p>
+          <div className="md:hidden space-y-3">
+            {visible.map(l => (
+              <Link
+                key={l.account_id}
+                href={`/admin/lawyers/${l.account_id}`}
+                className="block rounded-xl bg-white/[0.03] border border-white/8 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-white truncate">{fullName(l.first_name, l.last_name)}</p>
+                    <p className="text-xs text-slate-500 truncate">{l.email}</p>
+                  </div>
+                  <StatusBadge status={l.verification_status} />
                 </div>
-                <button onClick={() => setDocsModal(null)} className="text-slate-400 hover:text-white transition-colors">
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Modal body */}
-              <div className="p-6">
-                {docsLoading ? (
-                  <div className="py-12 text-center">
-                    <div className="w-7 h-7 border-2 border-[#C9A227]/30 border-t-[#C9A227] rounded-full animate-spin mx-auto mb-3" />
-                    <p className="text-slate-500 text-sm">Loading documents…</p>
-                  </div>
-                ) : docsError ? (
-                  <div className="py-8 text-center">
-                    <AlertCircle size={28} className="text-rose-400 mx-auto mb-3" />
-                    <p className="text-rose-300 text-sm">{docsError}</p>
-                    <button
-                      onClick={() => openDocsModal(docsModal.lawyer)}
-                      className="mt-3 text-xs text-slate-400 hover:text-white underline"
-                    >
-                      Try again
-                    </button>
-                  </div>
-                ) : docsData ? (
-                  <div className="space-y-2.5">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">
-                      Submitted Documents — links expire in 24 hours
-                    </p>
-                    <DocLink label="Enrolment Certificate" url={docsData.docs.enrolment_cert} type="auto" />
-                    <DocLink label="Bar Council ID — Front" url={docsData.docs.bar_id_front} type="image" />
-                    <DocLink label="Bar Council ID — Back" url={docsData.docs.bar_id_back} type="image" />
-                    <DocLink
-                      label={`Government ID (${docsData.lawyer.govtIdType || 'ID'})`}
-                      url={docsData.docs.govt_id}
-                      type="auto"
-                    />
-                    {docsData.docs.profile_photo && (
-                      <DocLink label="Profile Photo" url={docsData.docs.profile_photo} type="image" />
-                    )}
-
-                    <div className="pt-4 border-t border-white/10">
-                      <p className="text-xs text-slate-500 mb-3">
-                        Verify the enrolment number against the
-                        <a href="https://www.barcouncilofindia.org" target="_blank" rel="noopener noreferrer"
-                          className="text-[#C9A227] ml-1 hover:underline">
-                          Bar Council of India portal
-                        </a>
-                        , then approve or reject.
-                      </p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleApprove(docsModal.lawyerId)}
-                          disabled={actionLoading === docsModal.lawyerId}
-                          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg text-sm font-semibold
-                            bg-emerald-500/10 border border-emerald-500/20 text-emerald-400
-                            hover:bg-emerald-500/20 transition-all disabled:opacity-50"
-                        >
-                          {actionLoading === docsModal.lawyerId
-                            ? <span className="w-4 h-4 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
-                            : <Check size={15} />}
-                          Approve & Notify
-                        </button>
-                        <button
-                          onClick={() => { setRejectModal(docsModal.lawyer); setRejectReason('') }}
-                          className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg text-sm font-semibold
-                            bg-rose-500/10 border border-rose-500/20 text-rose-400
-                            hover:bg-rose-500/20 transition-all"
-                        >
-                          <X size={15} />
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </motion.div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-400">
+                  {l.avg_rating != null && (
+                    <span className="inline-flex items-center gap-1">
+                      <Star size={12} className="text-[#D4AF37] fill-[#D4AF37]" />
+                      {Number(l.avg_rating).toFixed(1)}
+                    </span>
+                  )}
+                  <span>{l.consultation_fee_chat ? formatCurrency(l.consultation_fee_chat) + '/min' : 'No fee set'}</span>
+                  <span>{formatDate(l.created_at)}</span>
+                </div>
+              </Link>
+            ))}
           </div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
 
-      {/* ── Reject with Reason Modal ──────────────────────────────────────── */}
-      <AnimatePresence>
-        {rejectModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => !rejectSubmitting && setRejectModal(null)}
-            />
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative w-full max-w-md bg-[#0A0D14] border border-white/10 rounded-2xl shadow-2xl z-10 p-6"
-            >
-              <div className="flex justify-between items-start mb-5">
-                <div>
-                  <h3 className="font-semibold text-white">Reject Application</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    {rejectModal.first_name} {rejectModal.last_name} will be notified with this reason.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setRejectModal(null)}
-                  disabled={rejectSubmitting}
-                  className="text-slate-400 hover:text-white transition-colors disabled:opacity-40"
-                >
-                  <X size={18} />
-                </button>
-              </div>
+      {!loading && !error && (
+        <Pagination page={page} pageSize={PAGE_SIZE} total={total} onChange={setPage} />
+      )}
 
-              <div className="mb-2">
-                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-                  Rejection Reason <span className="text-rose-400">*</span>
-                </label>
-                <textarea
-                  value={rejectReason}
-                  onChange={e => setRejectReason(e.target.value)}
-                  rows={4}
-                  placeholder="e.g. The enrolment certificate submitted does not match the provided enrolment number. Please resubmit a clear, legible copy of the original certificate issued by the Bar Council."
-                  disabled={rejectSubmitting}
-                  className="w-full px-3.5 py-3 rounded-lg bg-white/5 border border-white/15 text-white text-sm
-                    placeholder:text-slate-600 focus:outline-none focus:border-rose-500/40 transition-all resize-none
-                    disabled:opacity-50"
-                />
-                <p className="text-xs text-slate-600 mt-1">{rejectReason.length} characters</p>
-              </div>
+      <ReasonModal
+        open={!!rejectTarget}
+        title={`Reject ${fullName(rejectTarget?.first_name, rejectTarget?.last_name, 'application')}`}
+        label="Reason for rejection"
+        placeholder="This is emailed to the lawyer and recorded in the audit log."
+        confirmLabel="Reject application"
+        destructive
+        onCancel={() => setRejectTarget(null)}
+        onConfirm={reject}
+      />
 
-              {/* Quick-fill suggestions */}
-              <div className="mb-5">
-                <p className="text-xs text-slate-600 mb-2">Quick fill:</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    'Document illegible or unclear',
-                    'Enrolment number does not match certificate',
-                    'Government ID expired',
-                    'Bar Council ID front/back mismatch',
-                  ].map(suggestion => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => setRejectReason(suggestion)}
-                      className="text-xs px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:text-white hover:border-white/20 transition-all"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              </div>
+      <ReasonModal
+        open={!!infoTarget}
+        title="Request additional information"
+        label="What do you need from them?"
+        placeholder="e.g. Bar ID card back image is unreadable — please re-upload."
+        confirmLabel="Record request"
+        onCancel={() => setInfoTarget(null)}
+        onConfirm={requestInfo}
+      />
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRejectModal(null)}
-                  disabled={rejectSubmitting}
-                  className="flex-1 h-10 rounded-lg text-sm text-slate-400 bg-white/5 border border-white/10 hover:bg-white/10 transition-all disabled:opacity-40"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRejectSubmit}
-                  disabled={!rejectReason.trim() || rejectSubmitting}
-                  className="flex-1 flex items-center justify-center gap-2 h-10 rounded-lg text-sm font-semibold
-                    bg-rose-500/20 border border-rose-500/30 text-rose-300
-                    hover:bg-rose-500/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {rejectSubmitting
-                    ? <span className="w-4 h-4 border-2 border-rose-400/30 border-t-rose-400 rounded-full animate-spin" />
-                    : <X size={14} />}
-                  Reject & Notify
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ReasonModal
+        open={!!bulkAction}
+        title={bulkAction === 'approve'
+          ? `Approve ${selected.size} ${selected.size === 1 ? 'lawyer' : 'lawyers'}`
+          : `Reject ${selected.size} ${selected.size === 1 ? 'lawyer' : 'lawyers'}`}
+        label={bulkAction === 'approve' ? 'Note (recorded in audit log)' : 'Reason for rejection'}
+        placeholder={bulkAction === 'approve'
+          ? 'e.g. Credentials verified against Bar Council portal.'
+          : 'This is emailed to each lawyer.'}
+        confirmLabel={bulkAction === 'approve' ? 'Approve all' : 'Reject all'}
+        destructive={bulkAction === 'reject'}
+        onCancel={() => setBulkAction(null)}
+        onConfirm={runBulk}
+      />
+
+      <Toast message={toast?.msg ?? null} tone={toast?.tone} onDone={() => setToast(null)} />
     </div>
+  )
+}
+
+export default function AdminLawyersPage() {
+  return (
+    <Suspense fallback={<SkeletonRows rows={6} />}>
+      <AdminLawyersInner />
+    </Suspense>
   )
 }
