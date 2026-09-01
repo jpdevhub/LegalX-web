@@ -17,14 +17,38 @@ import {
   formatDate, formatDateTime, formatCurrency, fullName,
 } from '@/components/admin/AdminUI'
 
-type Tab = 'credentials' | 'documents' | 'services' | 'bank'
+type Tab = 'credentials' | 'professional' | 'documents' | 'services' | 'bank' | 'raw'
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'credentials', label: 'Credentials' },
-  { id: 'documents',   label: 'Documents' },
-  { id: 'services',    label: 'Services' },
-  { id: 'bank',        label: 'Bank' },
+  { id: 'credentials',  label: 'Credentials' },
+  { id: 'professional', label: 'Professional' },
+  { id: 'documents',    label: 'Documents' },
+  { id: 'services',     label: 'Services' },
+  { id: 'bank',         label: 'Bank' },
+  { id: 'raw',          label: 'All Fields' },
 ]
+
+/** Columns rendered in their own tabs, or that are noise on an admin screen. */
+const RAW_HIDDEN = new Set([
+  'account_id', 'deleted_at', 'version', 'avatar_url',
+  'enrolment_cert_url', 'bar_id_front_url', 'bar_id_back_url', 'govt_id_url', 'profile_photo_url',
+  'pan_number', 'upi_id', 'gst_number',
+])
+
+function humanise(key: string): string {
+  return key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+function renderValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (Array.isArray(value)) return value.length ? value.join(', ') : '—'
+  if (typeof value === 'object') return JSON.stringify(value)
+  const str = String(value)
+  // ISO timestamps render as readable IST.
+  if (/^\d{4}-\d{2}-\d{2}T/.test(str)) return formatDateTime(str)
+  return str
+}
 
 const DOC_LABELS: Record<string, string> = {
   enrolment_cert: 'Enrolment Certificate',
@@ -272,26 +296,77 @@ export default function AdminLawyerDetailPage() {
       <div className="rounded-xl bg-white/[0.03] border border-white/8 p-5">
         {tab === 'credentials' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <Field label="Full Name" value={name} />
+            <Field label="Email" value={p.email} />
+            <Field label="Phone" value={p.phone} />
             <Field label="Bar Council Number" value={p.bar_council_number} />
             <Field label="Bar Council State" value={p.bar_council_state} />
             <Field label="Year of Enrolment" value={p.enrolment_year} />
             <Field label="Years of Experience" value={p.years_experience} />
-            <Field label="Phone" value={p.phone} />
-            <Field label="Firm" value={p.firm_name} />
             <Field label="Government ID Type" value={p.govt_id_type} />
             <Field label="Onboarding Complete" value={p.onboarding_complete ? 'Yes' : 'No'} />
+            <Field label="Profile Completion" value={p.profile_completion_pct != null ? `${p.profile_completion_pct}%` : '—'} />
             <Field label="Account Status" value={data.account?.status ?? '—'} />
+            <Field label="Verified At" value={p.verified_at ? formatDateTime(p.verified_at) : 'Not yet verified'} />
+            <Field label="Applied On" value={formatDateTime(p.created_at)} />
+            <Field label="Last Updated" value={formatDateTime(p.updated_at)} />
             <Field label="Last Login" value={data.account?.last_login_at ? formatDateTime(data.account.last_login_at) : 'Never'} />
-            <Field
-              label="Courts Practiced"
-              value={(p.courts_practiced ?? []).length ? (p.courts_practiced as string[]).join(', ') : '—'}
-            />
-            <Field
-              label="Specializations"
-              value={(p.specializations ?? []).length ? (p.specializations as string[]).join(', ') : '—'}
-            />
-            <div className="sm:col-span-2 lg:col-span-3">
-              <Field label="Bio" value={p.bio || '—'} />
+          </div>
+        )}
+
+        {tab === 'professional' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <Field label="Firm Name" value={p.firm_name} />
+              <Field label="Primary Specialization" value={p.primary_specialization} />
+              <Field
+                label="LinkedIn"
+                value={p.linkedin_url
+                  ? <a href={p.linkedin_url} target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] hover:text-white break-all">{p.linkedin_url}</a>
+                  : '—'}
+              />
+              <Field
+                label="Website"
+                value={p.website_url
+                  ? <a href={p.website_url} target="_blank" rel="noopener noreferrer" className="text-[#D4AF37] hover:text-white break-all">{p.website_url}</a>
+                  : '—'}
+              />
+              <div className="sm:col-span-2 lg:col-span-3">
+                <Field label="Office Address" value={p.office_address} />
+              </div>
+            </div>
+
+            {([
+              ['Specializations',      p.specializations],
+              ['Courts Practiced',     p.courts_practiced],
+              ['Languages',            p.languages],
+              ['Notable Achievements', p.notable_achievements],
+              ['Certifications',       p.certifications],
+            ] as [string, unknown][]).map(([label, value]) => {
+              const items = Array.isArray(value) ? (value as string[]) : []
+              return (
+                <div key={label}>
+                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">{label}</p>
+                  {items.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {items.map((item, i) => (
+                        <span key={`${label}-${i}`} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-slate-500">None provided.</p>
+                  )}
+                </div>
+              )
+            })}
+
+            <div>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Bio</p>
+              <p className="text-sm text-slate-200 whitespace-pre-wrap leading-relaxed">
+                {p.bio || 'No bio provided.'}
+              </p>
             </div>
           </div>
         )}
@@ -369,12 +444,52 @@ export default function AdminLawyerDetailPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-2">
+            <div>
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">
+                Availability
+              </p>
+              {p.availability_slots && Object.keys(p.availability_slots).length ? (
+                <div className="space-y-1.5">
+                  {Object.entries(p.availability_slots as Record<string, unknown>).map(([day, slots]) => (
+                    <div key={day} className="flex items-start gap-3 text-sm">
+                      <span className="w-24 shrink-0 text-slate-400 capitalize">{day}</span>
+                      <span className="text-slate-200">
+                        {Array.isArray(slots)
+                          ? (slots.length ? slots.map(s => typeof s === 'string' ? s : JSON.stringify(s)).join(', ') : 'Unavailable')
+                          : String(slots)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500">No availability set.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-5 pt-2">
               <Field label="Average Rating" value={p.avg_rating ? Number(p.avg_rating).toFixed(1) : '—'} />
               <Field label="Total Reviews" value={p.total_reviews ?? 0} />
               <Field label="Currently Online" value={p.is_online ? 'Yes' : 'No'} />
+              <Field label="Featured" value={p.is_featured ? 'Yes' : 'No'} />
             </div>
           </div>
+        )}
+
+        {tab === 'raw' && (
+          <>
+            <p className="text-xs text-slate-500 mb-4">
+              Every field stored for this lawyer. Document URLs and tax identifiers are
+              omitted — those live on the Documents and Bank tabs, masked.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4">
+              {Object.entries(p)
+                .filter(([key]) => !RAW_HIDDEN.has(key))
+                .sort(([a], [b]) => a.localeCompare(b))
+                .map(([key, value]) => (
+                  <Field key={key} label={humanise(key)} value={renderValue(value)} />
+                ))}
+            </div>
+          </>
         )}
 
         {tab === 'bank' && (
