@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { apiLogout, type AuthUser } from '@/lib/api'
 import { LXLogoMark } from '@/components/ui/LXLogo'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const NAV = [
   { label: 'Dashboard',     href: '/lawyer-dashboard',               icon: 'grid' },
@@ -113,6 +114,7 @@ export function LPortalSidebar({ user, isOnline, onToggleOnline }: Props) {
           )
         })}
         <div className="pt-3 border-t border-white/8 mt-3 space-y-1">
+          <NotificationBell variant="sidebar" />
           {/* View own public profile on the client-facing site */}
           <Link href="/talk-to-lawyer" target="_blank" className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400 hover:text-white hover:bg-white/5 transition-all">
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>

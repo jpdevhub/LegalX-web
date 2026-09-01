@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { LXLogoMark } from '@/components/ui/LXLogo'
 import { cn } from '@/lib/utils'
 import { apiGetMe, apiLogout, type AuthUser } from '@/lib/api'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const NAV_ITEMS = [
   { label: 'Home',             href: '/' },
@@ -131,7 +132,9 @@ export function Header() {
                 <div className="h-8 w-20 rounded-md bg-primary/20 animate-pulse rounded-md" />
               </div>
             ) : user ? (
-              /* Authenticated: avatar + dropdown */
+              /* Authenticated: notifications + avatar dropdown */
+              <>
+              <NotificationBell />
               <div className="relative" ref={menuRef}>
                 <button
                   onClick={() => setUserMenuOpen((v) => !v)}
@@ -200,6 +203,7 @@ export function Header() {
                   )}
                 </AnimatePresence>
               </div>
+              </>
             ) : (
               /* Not authenticated */
               <>
