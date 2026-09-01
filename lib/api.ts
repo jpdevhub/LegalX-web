@@ -652,6 +652,66 @@ export async function apiGetAnalytics(): Promise<AdminAnalytics> {
   return apiFetch<AdminAnalytics>('/api/admin/analytics')
 }
 
+// ── Notifications ─────────────────────────────────────────────────────────────
+
+export interface AppNotification {
+  id: string
+  title: string
+  message: string
+  type: string
+  is_read: boolean
+  link: string | null
+  created_at: string
+}
+
+export async function apiGetNotifications(
+  params: { page?: number; pageSize?: number } = {}
+): Promise<{ notifications: AppNotification[]; total: number; unread: number }> {
+  return apiFetch(`/api/notifications${buildQuery(params)}`)
+}
+
+export async function apiMarkNotificationRead(id: string): Promise<void> {
+  await apiFetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+}
+
+export async function apiMarkAllNotificationsRead(): Promise<void> {
+  await apiFetch('/api/notifications/read-all', { method: 'PATCH' })
+}
+
+// ── Consultations ─────────────────────────────────────────────────────────────
+
+export interface AgoraSession {
+  consultationId: string
+  channelName: string
+  agoraAppId: string
+  token: string
+  uid: number
+  role: 'client' | 'lawyer'
+  type: 'chat' | 'voice' | 'video'
+  status: string
+  counterpartId: string | null
+}
+
+/**
+ * Fetches call credentials for a consultation. The backend authorises this
+ * against the two participants, so nothing sensitive needs to travel in the URL.
+ */
+export async function apiGetConsultationToken(consultationId: string): Promise<AgoraSession> {
+  return apiFetch<AgoraSession>(`/api/consultations/${consultationId}/agora-token`)
+}
+
+export async function apiSubmitReview(
+  targetId: string,
+  rating: number,
+  comment: string,
+  targetType: 'lawyer' | 'consultation' = 'lawyer'
+): Promise<void> {
+  await apiFetch('/api/consultations/review', {
+    method: 'POST',
+    body: JSON.stringify({ targetId, rating, comment, targetType }),
+  })
+}
+
 // ── Admin: articles ───────────────────────────────────────────────────────────
 
 export interface AdminArticle {
