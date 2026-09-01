@@ -5,17 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
 import { apiResetPassword, apiForgotPassword } from '@/lib/api'
+import { PasswordRules, isPasswordValid } from '@/components/ui/PasswordRules'
 
 // Supabase issues 8-digit recovery codes. The backend accepts 6–10 so a
 // dashboard change can't break resets; this only drives how many boxes we draw.
 const OTP_LENGTH = 8
 const RESEND_COOLDOWN_SECONDS = 60
-
-const RULES = [
-  { key: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
-  { key: 'upper',  label: 'One uppercase letter',  test: (p: string) => /[A-Z]/.test(p) },
-  { key: 'number', label: 'One number',            test: (p: string) => /[0-9]/.test(p) },
-] as const
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -46,8 +41,7 @@ function ResetPasswordForm() {
   }, [cooldown])
 
   const otp = digits.join('')
-  const rulesPassed = useMemo(() => RULES.map(r => r.test(password)), [password])
-  const allRulesPass = rulesPassed.every(Boolean)
+  const allRulesPass = useMemo(() => isPasswordValid(password), [password])
   const matches = confirm.length > 0 && password === confirm
   const canSubmit = !loading && email.trim().length > 0 && otp.length === OTP_LENGTH && allRulesPass && matches
 
@@ -245,31 +239,7 @@ function ResetPasswordForm() {
             />
           </div>
 
-          <ul className="space-y-1.5">
-            {RULES.map((rule, i) => {
-              const ok = rulesPassed[i]
-              return (
-                <li
-                  key={rule.key}
-                  className={`flex items-center gap-2 text-xs transition-colors ${ok ? 'text-emerald-400' : 'text-slate-500'}`}
-                >
-                  <svg
-                    className="w-3.5 h-3.5 flex-shrink-0"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    suppressHydrationWarning
-                  >
-                    {ok ? <path d="M20 6L9 17l-5-5" /> : <circle cx="12" cy="12" r="9" strokeWidth="2" />}
-                  </svg>
-                  {rule.label}
-                </li>
-              )
-            })}
-          </ul>
+          <PasswordRules password={password} />
 
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide" htmlFor="confirm">
