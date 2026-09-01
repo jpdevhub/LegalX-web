@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import { ShortsFeed } from '@/components/sections/shorts/ShortsFeed'
+import Link from 'next/link'
+import { KnowledgeFeed } from '@/components/sections/knowledge/KnowledgeFeed'
 import { apiGetShorts, apiGetShortCategories, type LegalShort } from '@/lib/api'
 
 /**
@@ -13,12 +14,12 @@ import { apiGetShorts, apiGetShortCategories, type LegalShort } from '@/lib/api'
 export const revalidate = 900 // 15 minutes
 
 export const metadata: Metadata = {
-  title: 'Legal Shorts — Daily Court Updates | LegalXOnline',
+  title: 'Knowledge Center — Daily Legal Updates | LegalXOnline',
   description:
-    'Bite-sized summaries of the latest Indian court judgments, updated daily. Sourced from official court records and reviewed by our legal team.',
+    'Bite-sized summaries of Indian legal and government updates, curated daily. Every card is grounded in an official source and reviewed by our team before publication.',
   openGraph: {
-    title: 'Legal Shorts — Daily Indian Court Updates',
-    description: 'Two-minute summaries of the judgments that matter, every morning.',
+    title: 'LegalX Knowledge Center',
+    description: 'Two-minute summaries of the legal updates that matter, every morning.',
     type: 'website',
   },
 }
@@ -44,7 +45,7 @@ export default async function ShortsPage() {
 
   return (
     <div className="bg-[#0A0D14]">
-      <ShortsFeed
+      <KnowledgeFeed
         initialShorts={initial.shorts}
         initialCursor={initial.nextCursor}
         initialHasMore={initial.hasMore}
@@ -54,14 +55,19 @@ export default async function ShortsPage() {
       {/* Not-advice notice. This is a legal-services brand publishing summaries
           of case law — the boundary needs to be stated on the page itself, not
           buried in the terms. */}
-      <p className="px-5 py-3 text-center text-[11px] text-slate-600 border-t border-white/8">
-        Summaries are drawn from official court records and reviewed before publication.
-        They are general information, not legal advice.{' '}
-        <a href="/talk-to-lawyer" className="text-slate-500 hover:text-[#D4AF37] underline">
-          Speak to a lawyer
-        </a>{' '}
-        about your situation.
-      </p>
+      <div className="px-5 py-3 border-t border-white/8 text-center">
+        <Link href="/knowledge-center/archive" className="text-xs font-semibold text-[#D4AF37] hover:text-white transition-colors">
+          Browse the full archive →
+        </Link>
+        <p className="mt-2 text-[11px] text-slate-600">
+          Summaries are drawn from official sources and reviewed before publication.
+          They are general information, not legal advice.{' '}
+          <Link href="/talk-to-lawyer" className="text-slate-500 hover:text-[#D4AF37] underline">
+            Speak to a lawyer
+          </Link>{' '}
+          about your situation.
+        </p>
+      </div>
     </div>
   )
 }
