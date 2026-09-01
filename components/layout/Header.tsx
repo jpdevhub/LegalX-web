@@ -13,6 +13,7 @@ import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const NAV_ITEMS = [
   { label: 'Home',             href: '/' },
+  { label: 'Legal Shorts',     href: '/shorts' },
   { label: 'Documents',        href: '/documents' },
   { label: 'Talk to a Lawyer', href: '/talk-to-lawyer' },
   { label: 'Awards',           href: '/awards' },
