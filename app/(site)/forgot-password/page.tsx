@@ -116,7 +116,7 @@ function ForgotPasswordForm() {
                   link is on its way.
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
-                  The link is valid for 10 minutes. Check your spam folder if it doesn’t arrive.
+                  The link is valid for 1 hour. Check your spam folder if it doesn’t arrive.
                 </p>
 
                 {error && (
