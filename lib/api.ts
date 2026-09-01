@@ -171,11 +171,15 @@ export async function apiForgotPassword(email: string): Promise<{ message: strin
   })
 }
 
-/** Complete recovery using the access token Supabase put in the URL hash. */
-export async function apiResetPassword(accessToken: string, password: string): Promise<{ message: string }> {
+/** Complete recovery with the one-time code emailed to the user. */
+export async function apiResetPassword(
+  email: string,
+  otp: string,
+  password: string
+): Promise<{ message: string }> {
   return apiFetch('/api/auth/reset-password', {
     method: 'POST',
-    body: JSON.stringify({ accessToken, password }),
+    body: JSON.stringify({ email, otp, password }),
   })
 }
 
