@@ -102,7 +102,7 @@ export default function LawyerPortalLayout({ children }: { children: React.React
       // Load online status
       const lm = await apiGetLawyerMe()
       if (mountedRef.current) {
-        setIsOnline(lm?.profile?.is_online ?? false)
+        setIsOnline(lm?.is_online ?? false)
         setAuthReady(true)
       }
     }
@@ -112,37 +112,57 @@ export default function LawyerPortalLayout({ children }: { children: React.React
   // SSE: listen for incoming calls
   useEffect(() => {
     if (!authReady) return
-    const es = new EventSource('/api/notifications', { withCredentials: true })
-    eventRef.current = es
 
-    es.addEventListener('incoming_call', (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data) as IncomingCall
-        if (mountedRef.current) setIncomingCall(data)
-      } catch { /* ignore malformed */ }
-    })
+    let retry: ReturnType<typeof setTimeout> | null = null
+    let attempts = 0
+    let closed = false
 
-    es.onerror = () => {
-      es.close()
-      // Reconnect after 5s
-      setTimeout(() => {
-        if (mountedRef.current) {
-          const newEs = new EventSource('/api/notifications', { withCredentials: true })
-          eventRef.current = newEs
-        }
-      }, 5000)
+    // `/api/notifications` is the JSON list; the event stream lives at
+    // `/stream`. Pointing EventSource at the wrong one meant every connection
+    // failed and no incoming call ever reached the lawyer.
+    const connect = () => {
+      if (closed) return
+      const es = new EventSource('/api/notifications/stream', { withCredentials: true })
+      eventRef.current = es
+
+      es.addEventListener('open', () => { attempts = 0 })
+
+      // Listeners are attached inside connect() so a reconnect keeps them —
+      // the old code created a bare EventSource with no handlers, so the very
+      // first drop silently disabled call alerts for the rest of the session.
+      es.addEventListener('incoming_call', (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data) as IncomingCall
+          if (mountedRef.current) setIncomingCall(data)
+        } catch { /* ignore malformed */ }
+      })
+
+      es.onerror = () => {
+        es.close()
+        if (closed) return
+        attempts += 1
+        const delay = Math.min(2000 * 2 ** (attempts - 1), 60_000)
+        retry = setTimeout(connect, delay)
+      }
     }
 
-    return () => es.close()
+    connect()
+    return () => {
+      closed = true
+      eventRef.current?.close()
+      if (retry) clearTimeout(retry)
+    }
   }, [authReady])
 
   const handleToggleOnline = useCallback(async () => {
     const next = !isOnline
-    setIsOnline(next)
+    setIsOnline(next) // optimistic
     try {
-      await apiFetch('/api/lawyers/me/status', { method: 'PATCH', body: JSON.stringify({ is_online: next }) })
+      // Key must be `isOnline` — the backend rejects anything else with a 400,
+      // which is what used to make the switch snap back to offline.
+      await apiFetch('/api/lawyers/me/status', { method: 'PATCH', body: JSON.stringify({ isOnline: next }) })
     } catch {
-      setIsOnline(!next) // rollback
+      setIsOnline(!next) // rollback so the switch reflects the server
     }
   }, [isOnline])
 

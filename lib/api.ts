@@ -753,6 +753,8 @@ export interface LawyerMe {
   onboarding_complete: boolean
   verification_status: 'pending_signup' | 'pending_verification' | 'verified' | 'rejected' | 'unverified'
   rejection_reason: string | null
+  /** Availability switch state. Top-level because `profile` renames it to `online`. */
+  is_online: boolean
   profile: Record<string, any> | null
 }
 

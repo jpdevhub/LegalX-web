@@ -37,6 +37,10 @@ interface VideoRoomProps {
   uid: number
   appId: string
   type: ConsultType
+  /** Whose seat this is — drives the waiting-room copy. */
+  viewerRole?: 'client' | 'lawyer'
+  /** Fired once the local user has left, so the page can prompt for a review. */
+  onEnded?: () => void
 }
 
 // ── Duration timer ─────────────────────────────────────────────────────────────
@@ -119,7 +123,7 @@ function VideoTile({
 }
 
 // ── Main VideoRoom ─────────────────────────────────────────────────────────────
-export default function VideoRoom({ consultationId, channel, token, uid, appId, type }: VideoRoomProps) {
+export default function VideoRoom({ consultationId, channel, token, uid, appId, type, viewerRole = 'client', onEnded }: VideoRoomProps) {
   const router = useRouter()
   const timer = useTimer()
   const clientRef = useRef<IAgoraRTCClient | null>(null)
@@ -230,10 +234,12 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
       await clientRef.current?.leave().catch(() => {})
       timer.stop()
       setEnded(true)
+      onEnded?.()
     } catch {
       setEnded(true)
+      onEnded?.()
     }
-  }, [consultationId, localAudio, localVideo, timer])
+  }, [consultationId, localAudio, localVideo, timer, onEnded])
 
   // ── Ended screen ──────────────────────────────────────────────────────────────
   if (ended) {
@@ -319,7 +325,7 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
           )}
         </div>
         <div className="text-xs text-slate-500 font-mono">
-          {remoteUsers.length > 0 ? `${remoteUsers.length + 1} participant${remoteUsers.length > 0 ? 's' : ''}` : 'Waiting for lawyer…'}
+          {remoteUsers.length > 0 ? `${remoteUsers.length + 1} participant${remoteUsers.length > 0 ? 's' : ''}` : (viewerRole === 'lawyer' ? 'Waiting for client…' : 'Waiting for lawyer…')}
         </div>
       </div>
 
@@ -345,8 +351,14 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                   </svg>
                 </div>
                 <div>
-                  <p className="text-white font-medium mb-1">Waiting for the lawyer to join…</p>
-                  <p className="text-slate-500 text-sm">The lawyer has been notified and will join shortly.</p>
+                  <p className="text-white font-medium mb-1">
+                    {viewerRole === 'lawyer' ? 'Waiting for the client to join…' : 'Waiting for the lawyer to join…'}
+                  </p>
+                  <p className="text-slate-500 text-sm">
+                    {viewerRole === 'lawyer'
+                      ? 'The client has been notified and will join shortly.'
+                      : 'The lawyer has been notified and will join shortly.'}
+                  </p>
                 </div>
                 <div className="flex gap-1.5">
                   {[0,1,2].map(i => (
@@ -373,7 +385,7 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                 )}
               </div>
               <p className="text-xl font-semibold text-white mb-2">
-                {remoteUsers.length > 0 ? 'Connected' : 'Waiting for Lawyer…'}
+                {remoteUsers.length > 0 ? 'Connected' : (viewerRole === 'lawyer' ? 'Waiting for Client…' : 'Waiting for Lawyer…')}
               </p>
               <p className="text-slate-400 text-sm">
                 {remoteUsers.length > 0
