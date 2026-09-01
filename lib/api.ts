@@ -506,6 +506,187 @@ export async function apiGetAuditLog(
   return { items: data.entries, total: data.total, page: data.page, pageSize: data.pageSize }
 }
 
+// ── Admin: disputes ───────────────────────────────────────────────────────────
+
+export type DisputeStatus = 'open' | 'investigating' | 'resolved' | 'escalated'
+
+export interface AdminDispute {
+  id: string
+  consultation_id: string | null
+  service_order_id: string | null
+  client_id: string
+  lawyer_id: string | null
+  client_name: string | null
+  lawyer_name: string | null
+  reason: string
+  status: DisputeStatus
+  resolution_note: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function apiGetDisputes(
+  params: { status?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AdminDispute>> {
+  const data = await apiFetch<{ disputes: AdminDispute[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/disputes${buildQuery(params)}`
+  )
+  return { items: data.disputes, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+export async function apiUpdateDispute(
+  id: string,
+  status: DisputeStatus,
+  resolutionNote?: string
+): Promise<void> {
+  await apiFetch(`/api/admin/disputes/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, resolutionNote }),
+  })
+}
+
+// ── Admin: payouts ────────────────────────────────────────────────────────────
+
+export type PayoutStatus = 'pending' | 'processing' | 'paid' | 'held' | 'cancelled'
+
+export interface AdminPayout {
+  id: string
+  lawyer_id: string
+  lawyer_name: string
+  has_pan: boolean
+  fy_cumulative_gross: number
+  period_start: string
+  period_end: string
+  gross_amount: number
+  tds_amount: number
+  platform_fee: number
+  net_amount: number
+  status: PayoutStatus
+  hold_reason: string | null
+  transaction_count: number
+  bank_ref: string | null
+  paid_at: string | null
+  created_at: string
+}
+
+export async function apiGetPayouts(
+  params: { status?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AdminPayout> & { fyStart: string }> {
+  const data = await apiFetch<{
+    payouts: AdminPayout[]; total: number; page: number; pageSize: number; fyStart: string
+  }>(`/api/admin/payouts${buildQuery(params)}`)
+  return { items: data.payouts, total: data.total, page: data.page, pageSize: data.pageSize, fyStart: data.fyStart }
+}
+
+export async function apiGeneratePayouts(
+  periodStart: string,
+  periodEnd: string
+): Promise<{ created: number; message?: string }> {
+  return apiFetch('/api/admin/payouts/generate', {
+    method: 'POST',
+    body: JSON.stringify({ periodStart, periodEnd }),
+  })
+}
+
+export async function apiHoldPayout(id: string, reason: string): Promise<void> {
+  await apiFetch(`/api/admin/payouts/${id}/hold`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export async function apiSetPayoutStatus(
+  id: string,
+  status: 'pending' | 'processing' | 'paid' | 'cancelled',
+  bankRef?: string
+): Promise<void> {
+  await apiFetch(`/api/admin/payouts/${id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status, bankRef }),
+  })
+}
+
+// ── Admin: documents ──────────────────────────────────────────────────────────
+
+export interface AdminServiceOrder {
+  id: string
+  order_number: string | null
+  account_id: string | null
+  assigned_lawyer_id: string | null
+  client_name: string
+  lawyer_name: string | null
+  service_title: string
+  status: string
+  price: number | null
+  customer_notes: string | null
+  internal_notes: string | null
+  created_at: string
+  updated_at: string
+  completed_at: string | null
+}
+
+export async function apiGetAdminDocuments(
+  params: { status?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AdminServiceOrder>> {
+  const data = await apiFetch<{ orders: AdminServiceOrder[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/documents${buildQuery(params)}`
+  )
+  return { items: data.orders, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+// ── Admin: analytics ──────────────────────────────────────────────────────────
+
+export interface AdminAnalytics {
+  months: string[]
+  revenueByMonth: Record<string, number>
+  consultRevenue: Record<string, number>
+  docRevenue: Record<string, number>
+  clientSignups: Record<string, number>
+  lawyerSignups: Record<string, number>
+  consultByType: Record<string, number>
+  leaderboard: { lawyer_id: string; name: string; avg_rating: number; total_reviews: number }[]
+  totals: { consultations: number; disputes: number; disputeRate: number; totalRevenue: number }
+}
+
+export async function apiGetAnalytics(): Promise<AdminAnalytics> {
+  return apiFetch<AdminAnalytics>('/api/admin/analytics')
+}
+
+// ── Admin: articles ───────────────────────────────────────────────────────────
+
+export interface AdminArticle {
+  id: string
+  title: string
+  slug: string
+  content: string | null
+  status: 'draft' | 'published'
+  published_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export async function apiGetArticles(
+  params: { status?: string; search?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AdminArticle>> {
+  const data = await apiFetch<{ articles: AdminArticle[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/articles${buildQuery(params)}`
+  )
+  return { items: data.articles, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+export async function apiCreateArticle(input: {
+  title: string; slug: string; content: string; status: 'draft' | 'published'
+}): Promise<{ article: AdminArticle }> {
+  return apiFetch('/api/admin/articles', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export async function apiUpdateArticle(
+  id: string,
+  input: Partial<{ title: string; slug: string; content: string; status: 'draft' | 'published' }>
+): Promise<void> {
+  await apiFetch(`/api/admin/articles/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
 // ── Lawyer Onboarding ─────────────────────────────────────────────────────────
 
 export interface LawyerMe {
