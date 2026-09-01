@@ -34,16 +34,22 @@ function LoginForm() {
     setError(null)
     try {
       const user = await apiLogin(email, password)
-      if (user.role === 'admin') {
-        router.push('/admin')
-      } else if (user.role === 'lawyer') {
-        // Gate: redirect to onboarding if not yet submitted
+      // A redirect_to set by the route guard means the user was interrupted
+      // mid-journey — send them back there whatever their role, so a lawyer
+      // bounced out of a call room returns to the call and not their dashboard.
+      const hasRedirect = redirectTo !== '/'
+
+      if (user.role === 'lawyer') {
+        // Onboarding gate still wins: an unverified lawyer can't use the
+        // portal, so returning them to a deep link would only fail again.
         const lawyerMe = await apiGetLawyerMe()
         if (!lawyerMe || !lawyerMe.onboarding_complete) {
           router.push('/onboarding/lawyer')
         } else {
-          router.push('/lawyer-dashboard')
+          router.push(hasRedirect ? redirectTo : '/lawyer-dashboard')
         }
+      } else if (user.role === 'admin') {
+        router.push(hasRedirect ? redirectTo : '/admin')
       } else {
         router.push(redirectTo)
       }
