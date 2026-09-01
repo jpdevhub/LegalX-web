@@ -652,6 +652,41 @@ export async function apiGetAnalytics(): Promise<AdminAnalytics> {
   return apiFetch<AdminAnalytics>('/api/admin/analytics')
 }
 
+// ── Legal Shorts ──────────────────────────────────────────────────────────────
+
+export interface LegalShort {
+  id: string
+  title: string
+  slug: string | null
+  summary: string
+  takeaway: string | null
+  category: string
+  court: string | null
+  judgment_date: string | null
+  source_url: string | null
+  tags: string[] | null
+  likes_count: number
+  published_at: string | null
+  created_at: string
+}
+
+export interface ShortsPage {
+  shorts: LegalShort[]
+  hasMore: boolean
+  nextCursor: string | null
+}
+
+export async function apiGetShorts(
+  params: { category?: string; before?: string; limit?: number } = {}
+): Promise<ShortsPage> {
+  return apiFetch<ShortsPage>(`/api/shorts${buildQuery(params)}`)
+}
+
+export async function apiGetShortCategories(): Promise<{ name: string; count: number }[]> {
+  const data = await apiFetch<{ categories: { name: string; count: number }[] }>('/api/shorts/categories')
+  return data.categories
+}
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export interface AppNotification {
