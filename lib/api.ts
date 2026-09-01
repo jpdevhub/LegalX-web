@@ -687,6 +687,73 @@ export async function apiGetShortCategories(): Promise<{ name: string; count: nu
   return data.categories
 }
 
+export async function apiGetShort(slug: string): Promise<LegalShort | null> {
+  try {
+    const data = await apiFetch<{ short: LegalShort }>(`/api/shorts/${slug}`)
+    return data.short
+  } catch {
+    return null
+  }
+}
+
+// ── Admin: shorts review queue ────────────────────────────────────────────────
+
+export interface AdminShort extends LegalShort {
+  is_published: boolean
+}
+
+export async function apiGetAdminShorts(
+  params: { status?: 'draft' | 'published' | 'all'; search?: string; page?: number; pageSize?: number } = {}
+): Promise<Paginated<AdminShort>> {
+  const data = await apiFetch<{ shorts: AdminShort[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/shorts${buildQuery(params)}`
+  )
+  return { items: data.shorts, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+export async function apiUpdateShort(
+  id: string,
+  input: Partial<{
+    title: string; summary: string; takeaway: string; category: string
+    court: string; judgmentDate: string; tags: string[]; isPublished: boolean
+  }>
+): Promise<void> {
+  await apiFetch(`/api/admin/shorts/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
+}
+
+export async function apiDeleteShort(id: string): Promise<void> {
+  await apiFetch(`/api/admin/shorts/${id}`, { method: 'DELETE' })
+}
+
+export interface ShortsFeedOption { id: string; label: string; withinDays: number | null }
+
+export async function apiGetShortsFeeds(): Promise<ShortsFeedOption[]> {
+  const data = await apiFetch<{ feeds: ShortsFeedOption[] }>('/api/admin/shorts/feeds')
+  return data.feeds
+}
+
+export interface AutoIngestResult {
+  feed: string
+  created: number
+  skipped: number
+  failed: number
+  message?: string
+  failures: { tid: number; error: string }[]
+}
+
+export async function apiAutoIngestShorts(feed: string, limit = 3): Promise<AutoIngestResult> {
+  return apiFetch('/api/admin/shorts/auto-ingest', {
+    method: 'POST',
+    body: JSON.stringify({ feed, limit }),
+  })
+}
+
+export async function apiIngestShort(input: {
+  sourceUrl: string; rawText: string; court?: string; judgmentDate?: string
+}): Promise<{ short: AdminShort }> {
+  return apiFetch('/api/admin/shorts/ingest', { method: 'POST', body: JSON.stringify(input) })
+}
+
 // ── Notifications ─────────────────────────────────────────────────────────────
 
 export interface AppNotification {
