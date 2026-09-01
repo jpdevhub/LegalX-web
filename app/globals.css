@@ -231,3 +231,12 @@
 svg {
   color-scheme: light dark;
 }
+/* Hides the scrollbar while keeping the element scrollable — used by the
+   snap-scrolling /shorts feed, where a visible bar breaks the full-bleed look. */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
