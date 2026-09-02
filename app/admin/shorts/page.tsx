@@ -11,6 +11,7 @@ import {
   Modal, ReasonModal, EmptyState, ErrorState, SkeletonRows,
   Pagination, Toast, formatDateTime,
 } from '@/components/admin/AdminUI'
+import { IngestProgress } from '@/components/admin/IngestProgress'
 
 const PAGE_SIZE = 20
 
@@ -419,17 +420,7 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
         </div>
       )}
 
-      {busy && job && (
-        <div className="mb-4 p-3 rounded-lg bg-[#C9A227]/10 border border-[#C9A227]/25">
-          <div className="flex items-center gap-2.5">
-            <span className="w-4 h-4 border-2 border-[#C9A227]/30 border-t-[#C9A227] rounded-full animate-spin shrink-0" />
-            <p className="text-xs text-[#D4AF37]">
-              Running in the background — {job.processed} of {job.total || limit} so far.
-              You can close this; it keeps going.
-            </p>
-          </div>
-        </div>
-      )}
+      {busy && job && <IngestProgress job={job} target={limit} />}
 
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
         How many to propose

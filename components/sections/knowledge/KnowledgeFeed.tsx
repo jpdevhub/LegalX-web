@@ -92,7 +92,11 @@ export function KnowledgeFeed({
           }
         }
       },
-      { root: containerRef.current, threshold: 0.6 }
+      // Root is the viewport, not the container. On mobile the container is
+      // exactly viewport-height so the two are equivalent; on desktop the
+      // container no longer scrolls, and a non-scrolling root would never fire
+      // — which would silently kill infinite scroll there.
+      { root: null, threshold: 0.4 }
     )
     cardRefs.current.forEach(el => el && observer.observe(el))
     return () => observer.disconnect()
@@ -170,7 +174,8 @@ export function KnowledgeFeed({
       ) : (
         <>
           {/* Progress rail — desktop only, mobile has the scrollbar */}
-          <div className="hidden lg:flex fixed right-6 top-1/2 -translate-y-1/2 z-20 flex-col gap-1.5">
+          {/* Tracks position in the snap feed — meaningless in the desktop grid. */}
+          <div className="hidden md:flex lg:hidden fixed right-6 top-1/2 -translate-y-1/2 z-20 flex-col gap-1.5">
             {shorts.slice(0, 12).map((_, i) => (
               <span
                 key={i}
@@ -181,29 +186,49 @@ export function KnowledgeFeed({
             ))}
           </div>
 
+          {/*
+            Two layouts, one data source.
+
+            On phones this is a full-bleed snap feed — one judgment per screen,
+            thumb-scrolled, which is what the format is for. On a wide desktop
+            that same layout wastes most of the viewport and forces a scroll per
+            card, so above `lg` it becomes an ordinary two-column reading grid.
+            Snapping is disabled there rather than restyled, because snap points
+            on a multi-column grid fight the scroll.
+          */}
           <div
             ref={containerRef}
-            className="h-[calc(100vh-64px-53px)] overflow-y-auto snap-y snap-mandatory no-scrollbar"
+            className="
+              h-[calc(100vh-64px-53px)] overflow-y-auto no-scrollbar
+              snap-y snap-mandatory
+              lg:h-auto lg:overflow-visible lg:snap-none
+              lg:grid lg:grid-cols-2 lg:gap-5 lg:px-6 lg:py-8 lg:max-w-[1180px] lg:mx-auto
+              xl:grid-cols-3
+            "
           >
             {shorts.map((short, i) => (
               <article
                 key={short.id}
                 data-index={i}
                 ref={el => { cardRefs.current[i] = el }}
-                className="snap-start snap-always h-[calc(100vh-64px-53px)] flex items-center justify-center px-5 py-8"
+                className="
+                  snap-start snap-always h-[calc(100vh-64px-53px)]
+                  flex items-center justify-center px-5 py-8
+                  lg:h-auto lg:block lg:p-0
+                "
               >
                 <ShortCard short={short} />
               </article>
             ))}
 
             {loading && (
-              <div className="h-24 flex items-center justify-center">
+              <div className="h-24 lg:col-span-full flex items-center justify-center">
                 <span className="w-5 h-5 border-2 border-white/15 border-t-[#C9A227] rounded-full animate-spin" />
               </div>
             )}
 
             {!hasMore && shorts.length > 0 && (
-              <div className="h-[40vh] flex flex-col items-center justify-center text-center px-6 snap-start">
+              <div className="h-[40vh] lg:h-auto lg:py-14 lg:col-span-full flex flex-col items-center justify-center text-center px-6 snap-start">
                 <p className="text-sm text-slate-400">You've reached the end.</p>
                 <p className="text-xs text-slate-600 mt-1">
                   That's every update we've published. New ones are added each morning.
@@ -247,7 +272,12 @@ function ShortCard({ short }: { short: LegalShort }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.35, ease: 'easeOut' }}
-      className="w-full max-w-[560px] max-h-full overflow-y-auto no-scrollbar rounded-2xl bg-white/[0.03] border border-white/10 p-6 sm:p-7"
+      className="
+        w-full max-w-[560px] max-h-full overflow-y-auto no-scrollbar
+        rounded-2xl bg-white/[0.03] border border-white/10 p-6 sm:p-7
+        lg:max-w-none lg:max-h-none lg:overflow-visible lg:h-full lg:flex lg:flex-col
+        lg:hover:border-white/20 lg:transition-colors
+      "
     >
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <span className={`px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wide ${toneFor(short.category)}`}>
@@ -267,7 +297,7 @@ function ShortCard({ short }: { short: LegalShort }) {
         {short.title}
       </h2>
 
-      <p className="text-[15px] text-slate-300 leading-relaxed whitespace-pre-wrap">
+      <p className="text-[15px] text-slate-300 leading-relaxed whitespace-pre-wrap lg:text-sm lg:line-clamp-[9]">
         {short.summary}
       </p>
 
@@ -290,7 +320,7 @@ function ShortCard({ short }: { short: LegalShort }) {
         </div>
       )}
 
-      <div className="mt-6 pt-4 border-t border-white/8 flex items-center justify-between gap-3">
+      <div className="mt-6 lg:mt-auto pt-4 border-t border-white/8 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button
             onClick={share}
