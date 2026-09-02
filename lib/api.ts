@@ -63,29 +63,73 @@ async function ensureCsrfToken(): Promise<string | undefined> {
 
 type FetchOptions = RequestInit & { skipCredentials?: boolean; skipCsrf?: boolean }
 
+// One shared refresh across concurrent 401s. A page that fires five requests
+// at once must not trigger five refreshes — Supabase rotates refresh tokens,
+// so the later calls would present an already-spent token and log the user out.
+let refreshPromise: Promise<boolean> | null = null
+
+function refreshSession(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise
+
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${getBaseUrl()}/api/auth/refresh`, {
+        method: 'POST',
+        credentials: 'include',
+        signal: AbortSignal.timeout(8000),
+      })
+      return res.ok
+    } catch {
+      return false
+    }
+  })()
+
+  refreshPromise.finally(() => { refreshPromise = null })
+  return refreshPromise
+}
+
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { skipCredentials, skipCsrf, ...fetchOpts } = options
   const isMutation = ['POST', 'PATCH', 'PUT', 'DELETE'].includes((fetchOpts.method || 'GET').toUpperCase())
-  
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(fetchOpts.headers as Record<string, string> || {}),
-  }
 
-  // Add CSRF token for mutations
-  if (isMutation && !skipCsrf) {
-    const csrfToken = await ensureCsrfToken()
-    if (csrfToken) {
-      headers[CSRF_HEADER_NAME] = csrfToken
+  const buildHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(fetchOpts.headers as Record<string, string> || {}),
     }
+    // Add CSRF token for mutations
+    if (isMutation && !skipCsrf) {
+      const csrfToken = await ensureCsrfToken()
+      if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
+    }
+    return headers
   }
 
   const baseUrl = getBaseUrl()
-  const res = await fetch(`${baseUrl}${path}`, {
+  const send = async () => fetch(`${baseUrl}${path}`, {
     ...fetchOpts,
     credentials: skipCredentials ? 'omit' : 'include', // sends HttpOnly cookies
-    headers,
+    headers: await buildHeaders(),
   })
+
+  let res = await send()
+
+  // Access tokens last an hour. On a 401, spend the refresh cookie once and
+  // replay the request — the user should never see "expired session" simply
+  // for having the tab open too long.
+  //
+  // Excluded: the credential endpoints. Retrying /login on a 401 would turn a
+  // wrong password into a refresh attempt, and retrying /refresh would recurse.
+  // /api/auth/me is deliberately NOT excluded — it is the call the header and
+  // the portal layouts use, so it is exactly where a silent recovery matters.
+  const noRetry = ['/api/auth/login', '/api/auth/signup', '/api/auth/refresh',
+                   '/api/auth/forgot-password', '/api/auth/reset-password']
+  const isCredentialRoute = noRetry.some(p => path.startsWith(p))
+  if (res.status === 401 && !isCredentialRoute && !skipCredentials) {
+    if (await refreshSession()) {
+      res = await send()
+    }
+  }
 
   if (!res.ok) {
     let body: { error?: string } = {}

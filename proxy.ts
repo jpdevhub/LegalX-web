@@ -44,6 +44,15 @@ function isLawyerBookingPath(pathname: string): boolean {
   return /^\/talk-to-lawyer\/[^/]+\/book(\/|$)/.test(pathname)
 }
 
+/**
+ * Replays Set-Cookie headers from a refresh onto the outgoing response, so the
+ * browser stores the rotated tokens rather than retrying with the expired ones.
+ */
+function withRefreshedCookies(response: NextResponse, cookies: string[]): NextResponse {
+  for (const cookie of cookies) response.headers.append('set-cookie', cookie)
+  return response
+}
+
 function redirectToLogin(request: NextRequest, pathname: string) {
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = '/login'
@@ -78,15 +87,35 @@ export async function proxy(request: NextRequest) {
       signal: AbortSignal.timeout(3000),
     })
 
-    if (!res.ok) {
-      // Token invalid or expired → back to login, and clear the stale cookies
+    let authRes = res
+    // Access tokens expire hourly. Before bouncing someone to login, spend the
+    // refresh cookie — otherwise navigating after an hour idle looks like the
+    // session broke, even though the refresh token is still valid for 30 days.
+    let refreshedCookies: string[] = []
+    if (!authRes.ok && request.cookies.get('lx_refresh_token')?.value) {
+      const refreshRes = await fetch(`${BACKEND_URL}/api/auth/refresh`, {
+        method: 'POST',
+        headers: { Cookie: `lx_refresh_token=${request.cookies.get('lx_refresh_token')!.value}` },
+        signal: AbortSignal.timeout(5000),
+      }).catch(() => null)
+
+      if (refreshRes?.ok) {
+        // Carry the rotated cookies back to the browser, or the next request
+        // arrives with the same expired token and refreshes all over again.
+        refreshedCookies = refreshRes.headers.getSetCookie?.() ?? []
+        authRes = refreshRes
+      }
+    }
+
+    if (!authRes.ok) {
+      // Genuinely signed out → back to login, and clear the stale cookies
       const response = redirectToLogin(request, pathname)
       response.cookies.delete('lx_access_token')
       response.cookies.delete('lx_refresh_token')
       return response
     }
 
-    const body = await res.json().catch(() => null)
+    const body = await authRes.json().catch(() => null)
     const role = body?.user?.role as Role | undefined
 
     if (!role) return redirectToLogin(request, pathname)
@@ -97,10 +126,10 @@ export async function proxy(request: NextRequest) {
       const homeUrl = request.nextUrl.clone()
       homeUrl.pathname = HOME_FOR_ROLE[role] ?? '/'
       homeUrl.search = ''
-      return NextResponse.redirect(homeUrl)
+      return withRefreshedCookies(NextResponse.redirect(homeUrl), refreshedCookies)
     }
 
-    return NextResponse.next()
+    return withRefreshedCookies(NextResponse.next(), refreshedCookies)
   } catch {
     // Backend unreachable — fail open in dev, fail closed in production
     if (process.env.NODE_ENV === 'production') {
