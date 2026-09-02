@@ -18,15 +18,31 @@ import { apiGetShorts, type LegalShort } from '@/lib/api'
 // hammering the backend.
 const PAGE_SIZE = 20
 
+/**
+ * Categories describe the reader's situation, not a legal discipline. The
+ * previous set (Civil / Corporate / Consumer) gave a model with no legal
+ * subject in front of it nothing to anchor on, so tagging was arbitrary.
+ */
+const CATEGORY_LABELS: Record<string, string> = {
+  property_rent:       'Property & Rent',
+  family_marriage:     'Family & Marriage',
+  money_consumer:      'Money & Consumer',
+  crime_safety:        'Crime & Safety',
+  business_compliance: 'Business & Compliance',
+  cyber_online:        'Cyber & Online',
+}
+
 const CATEGORY_TONES: Record<string, string> = {
-  Criminal:    'bg-rose-500/15 text-rose-300 border-rose-500/25',
-  Civil:       'bg-blue-500/15 text-blue-300 border-blue-500/25',
-  Corporate:   'bg-violet-500/15 text-violet-300 border-violet-500/25',
-  Family:      'bg-pink-500/15 text-pink-300 border-pink-500/25',
-  Property:    'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
-  Tax:         'bg-amber-500/15 text-amber-300 border-amber-500/25',
-  Labour:      'bg-cyan-500/15 text-cyan-300 border-cyan-500/25',
-  Constitutional: 'bg-[#C9A227]/15 text-[#D4AF37] border-[#C9A227]/25',
+  property_rent:       'bg-emerald-500/15 text-emerald-300 border-emerald-500/25',
+  family_marriage:     'bg-pink-500/15 text-pink-300 border-pink-500/25',
+  money_consumer:      'bg-blue-500/15 text-blue-300 border-blue-500/25',
+  crime_safety:        'bg-rose-500/15 text-rose-300 border-rose-500/25',
+  business_compliance: 'bg-[#C9A227]/15 text-[#D4AF37] border-[#C9A227]/25',
+  cyber_online:        'bg-violet-500/15 text-violet-300 border-violet-500/25',
+}
+
+export function labelFor(category: string): string {
+  return CATEGORY_LABELS[category] ?? category.replace(/_/g, ' ')
 }
 
 function toneFor(category: string): string {
@@ -161,7 +177,7 @@ export function KnowledgeFeed({
                     : 'bg-white/5 text-slate-300 border-white/10 hover:border-white/25'
                 }`}
               >
-                {c.name === 'all' ? 'All' : c.name}
+                {c.name === 'all' ? 'All' : labelFor(c.name)}
                 {c.count > 0 && <span className="ml-1.5 opacity-60">{c.count}</span>}
               </button>
             ))}
@@ -281,7 +297,7 @@ function ShortCard({ short }: { short: LegalShort }) {
     >
       <div className="flex items-center gap-2 flex-wrap mb-4">
         <span className={`px-2.5 py-1 rounded-full border text-[11px] font-bold uppercase tracking-wide ${toneFor(short.category)}`}>
-          {short.category}
+          {labelFor(short.category)}
         </span>
         {short.court && (
           <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-slate-400">
