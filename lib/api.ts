@@ -824,6 +824,11 @@ export interface IngestReport {
   skipped: { title: string; reason: string }[]
   failed: { url: string; error: string }[]
   suggestions: { id: string; title: string; relevance_score: number | null; confidence: string | null }[]
+  /** True when a quota stopped the run before it reached the target. */
+  stoppedEarly?: boolean
+  stopReason?: string
+  remaining?: number
+  message?: string
 }
 
 export async function apiRunIngest(limit = 8, feeds?: string[]): Promise<IngestReport> {

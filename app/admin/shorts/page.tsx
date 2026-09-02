@@ -347,12 +347,22 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
     try {
       const res = await apiRunIngest(limit)
       setReport(res)
+
+      // Nothing produced is the only real failure. A run that added some and
+      // then hit a quota is a success with a note — those cards are saved.
       if (res.proposed === 0) {
-        setError('Nothing new proposed. See the reasons below.')
+        setError(res.message ?? 'Nothing new proposed. See the reasons below.')
         setBusy(false)
         return
       }
-      await onDone(`Proposed ${res.proposed} suggestion${res.proposed === 1 ? '' : 's'} for review.`, 'success')
+
+      const base = `Added ${res.proposed} suggestion${res.proposed === 1 ? '' : 's'}.`
+      await onDone(
+        res.stoppedEarly
+          ? `${base} Quota reached — run again in a minute for the remaining ${res.remaining ?? 0}.`
+          : base,
+        'success'
+      )
     } catch (err: any) {
       setError(err?.message || 'Generation failed.')
       setBusy(false)
@@ -399,6 +409,16 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
       </p>
 
       {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
+
+      {report?.stoppedEarly && report.proposed > 0 && (
+        <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/25">
+          <p className="text-xs text-amber-300">
+            <span className="font-semibold">Saved {report.proposed}.</span>{' '}
+            {report.stopReason} {report.remaining ?? 0} candidates are still queued —
+            press Generate again in a minute to continue where it stopped.
+          </p>
+        </div>
+      )}
 
       {report && (report.skipped.length > 0 || report.failed.length > 0) && (
         <div className="mt-4 max-h-40 overflow-y-auto rounded-lg bg-black/30 border border-white/8 p-3">
