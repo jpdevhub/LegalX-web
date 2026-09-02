@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Sparkles, Plus, ExternalLink, Check, X, Quote } from 'lucide-react'
 import {
   apiGetAdminShorts, apiUpdateShort, apiBulkShorts, apiGetShortsFeeds,
-  apiRunIngest, apiIngestShort,
-  type AdminShort, type ShortsFeedOption, type IngestReport,
+  apiStartIngest, apiGetIngestStatus, apiIngestShort,
+  type AdminShort, type ShortsFeedOption, type IngestReport, type IngestJob,
 } from '@/lib/api'
 import {
   Modal, ReasonModal, EmptyState, ErrorState, SkeletonRows,
@@ -336,36 +336,63 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
 }) {
   const [limit, setLimit] = useState(8)
   const [busy, setBusy] = useState(false)
+  const [job, setJob] = useState<IngestJob | null>(null)
   const [report, setReport] = useState<IngestReport | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => { if (open) { setError(null); setBusy(false); setReport(null) } }, [open])
+  useEffect(() => { if (open) { setError(null); setBusy(false); setReport(null); setJob(null) } }, [open])
+
+  // Poll while a run is in flight. The request that starts it returns
+  // immediately, so this is what surfaces progress and the final result.
+  useEffect(() => {
+    if (!busy) return
+    let cancelled = false
+
+    const tick = async () => {
+      try {
+        const status = await apiGetIngestStatus()
+        if (cancelled) return
+        setJob(status)
+
+        if (status.status === 'done') {
+          setBusy(false)
+          setReport(status.report)
+          const proposed = status.report?.proposed ?? 0
+          if (proposed === 0) {
+            setError(status.report?.message ?? 'Nothing new proposed. See the reasons below.')
+            return
+          }
+          const base = `Added ${proposed} suggestion${proposed === 1 ? '' : 's'}.`
+          await onDone(
+            status.report?.stoppedEarly
+              ? `${base} Quota reached — run again for the remaining ${status.report.remaining ?? 0}.`
+              : base,
+            'success'
+          )
+        } else if (status.status === 'failed') {
+          setBusy(false)
+          setError(status.error ?? 'Generation failed.')
+        }
+      } catch {
+        // A dropped poll is not fatal — the run continues on the server.
+      }
+    }
+
+    const id = setInterval(tick, 2500)
+    tick()
+    return () => { cancelled = true; clearInterval(id) }
+  }, [busy, onDone])
 
   const run = async () => {
     setBusy(true)
     setError(null)
+    setReport(null)
     try {
-      const res = await apiRunIngest(limit)
-      setReport(res)
-
-      // Nothing produced is the only real failure. A run that added some and
-      // then hit a quota is a success with a note — those cards are saved.
-      if (res.proposed === 0) {
-        setError(res.message ?? 'Nothing new proposed. See the reasons below.')
-        setBusy(false)
-        return
-      }
-
-      const base = `Added ${res.proposed} suggestion${res.proposed === 1 ? '' : 's'}.`
-      await onDone(
-        res.stoppedEarly
-          ? `${base} Quota reached — run again in a minute for the remaining ${res.remaining ?? 0}.`
-          : base,
-        'success'
-      )
+      const started = await apiStartIngest(limit)
+      setJob(started)
     } catch (err: any) {
-      setError(err?.message || 'Generation failed.')
       setBusy(false)
+      setError(err?.message || 'Could not start the run.')
     }
   }
 
@@ -392,6 +419,18 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
         </div>
       )}
 
+      {busy && job && (
+        <div className="mb-4 p-3 rounded-lg bg-[#C9A227]/10 border border-[#C9A227]/25">
+          <div className="flex items-center gap-2.5">
+            <span className="w-4 h-4 border-2 border-[#C9A227]/30 border-t-[#C9A227] rounded-full animate-spin shrink-0" />
+            <p className="text-xs text-[#D4AF37]">
+              Running in the background — {job.processed} of {job.total || limit} so far.
+              You can close this; it keeps going.
+            </p>
+          </div>
+        </div>
+      )}
+
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
         How many to propose
       </label>
@@ -404,8 +443,9 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
         className="w-full h-11 px-3.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm focus:outline-none focus:border-[#C9A227]/60"
       />
       <p className="mt-1.5 text-xs text-slate-600">
-        Aim for roughly twice what you intend to publish. The free summarisation tier is
-        8,000 tokens per minute, so a large batch takes a few minutes.
+        Aim for roughly twice what you intend to publish. Each item takes a few
+        seconds, so a large batch runs for a while — it continues in the background
+        even if you close this.
       </p>
 
       {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
@@ -449,7 +489,7 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
           disabled={busy}
           className="flex-1 h-11 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors disabled:opacity-60"
         >
-          {busy ? 'Generating…' : 'Generate'}
+          {busy ? 'Running…' : 'Generate'}
         </button>
       </div>
     </Modal>

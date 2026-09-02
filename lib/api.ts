@@ -831,11 +831,32 @@ export interface IngestReport {
   message?: string
 }
 
-export async function apiRunIngest(limit = 8, feeds?: string[]): Promise<IngestReport> {
+export interface IngestJob {
+  status: 'idle' | 'running' | 'done' | 'failed'
+  startedAt: string | null
+  finishedAt: string | null
+  processed: number
+  total: number
+  report: IngestReport | null
+  error: string | null
+  alreadyRunning?: boolean
+}
+
+/**
+ * Starts a run and returns straight away.
+ *
+ * The run itself takes minutes — longer than the gateway will hold a request
+ * open — so progress is polled via apiGetIngestStatus rather than awaited.
+ */
+export async function apiStartIngest(limit = 8, feeds?: string[]): Promise<IngestJob> {
   return apiFetch('/api/admin/shorts/auto-ingest', {
     method: 'POST',
     body: JSON.stringify({ limit, feeds }),
   })
+}
+
+export async function apiGetIngestStatus(): Promise<IngestJob> {
+  return apiFetch('/api/admin/shorts/ingest-status')
 }
 
 export async function apiIngestShort(input: {
