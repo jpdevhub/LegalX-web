@@ -472,8 +472,11 @@ function AddSourceModal({ open, onClose, onDone }: {
   return (
     <Modal open={open} title="Add a source" onClose={busy ? () => {} : onClose}>
       <p className="text-sm text-slate-400 mb-4">
-        Paste a URL and the backend will fetch it. For PDFs and captcha-gated portals,
-        also paste the text.
+        Paste the URL of an official source and the backend will fetch and summarise it.
+        The Text box is only for when the fetch fails (PDFs, captcha-gated portals) — paste
+        the <em className="not-italic text-slate-300">actual document</em> there, not a topic
+        or a search phrase. There is no web search: every card must be grounded in a real
+        source document.
       </p>
 
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
@@ -497,17 +500,20 @@ function AddSourceModal({ open, onClose, onDone }: {
       />
 
       <label className="block text-xs font-semibold text-slate-300 mb-1.5 uppercase tracking-wide">
-        Text <span className="text-slate-600 normal-case font-normal">(optional — leave blank to fetch the URL)</span>
+        Document text <span className="text-slate-600 normal-case font-normal">(optional — leave blank to fetch the URL)</span>
       </label>
       <textarea
         value={rawText}
         onChange={e => setRawText(e.target.value)}
         rows={8}
-        placeholder="Paste the document text…"
+        placeholder="Paste the full text of the judgment, notification or press release…"
         className="w-full px-3.5 py-2.5 rounded-lg bg-white/8 border border-white/15 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/60 resize-none"
       />
       {rawText.length > 0 && (
-        <p className="mt-1.5 text-xs text-slate-600">{rawText.length.toLocaleString()} characters</p>
+        <p className={`mt-1.5 text-xs ${rawText.length < 250 ? 'text-amber-400' : 'text-slate-600'}`}>
+          {rawText.length.toLocaleString()} characters
+          {rawText.length < 250 && ' — under 250, so the URL will be fetched instead'}
+        </p>
       )}
 
       {error && <p className="mt-3 text-xs text-rose-400">{error}</p>}
