@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Sparkles, Plus, ExternalLink, Check, X, Quote } from 'lucide-react'
 import {
   apiGetAdminShorts, apiUpdateShort, apiBulkShorts, apiGetShortsFeeds,
-  apiStartIngest, apiGetIngestStatus, apiIngestShort,
+  apiStartIngest, apiGetIngestStatus, apiCancelIngest, apiIngestShort,
   type AdminShort, type ShortsFeedOption, type IngestReport, type IngestJob,
 } from '@/lib/api'
 import {
@@ -338,6 +338,7 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
   const [limit, setLimit] = useState(8)
   const [busy, setBusy] = useState(false)
   const [job, setJob] = useState<IngestJob | null>(null)
+  const [stopping, setStopping] = useState(false)
   const [report, setReport] = useState<IngestReport | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -354,6 +355,19 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
         const status = await apiGetIngestStatus()
         if (cancelled) return
         setJob(status)
+
+        if (status.status === 'cancelled') {
+          setBusy(false)
+          setReport(status.report)
+          const saved = status.report?.proposed ?? 0
+          await onDone(
+            saved > 0
+              ? `Stopped. ${saved} suggestion${saved === 1 ? '' : 's'} were saved.`
+              : 'Stopped before anything was created.',
+            'success'
+          )
+          return
+        }
 
         if (status.status === 'done') {
           setBusy(false)
@@ -384,7 +398,17 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
     return () => { cancelled = true; clearInterval(id) }
   }, [busy, onDone])
 
+  const stop = async () => {
+    setStopping(true)
+    try {
+      await apiCancelIngest()
+    } catch {
+      // The next poll reflects the real state either way.
+    }
+  }
+
   const run = async () => {
+    setStopping(false)
     setBusy(true)
     setError(null)
     setReport(null)
@@ -398,7 +422,7 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
   }
 
   return (
-    <Modal open={open} title="Generate suggestions" onClose={busy ? () => {} : onClose}>
+    <Modal open={open} title="Generate suggestions" onClose={onClose}>
       <p className="text-sm text-slate-400 mb-4">
         Pulls from the enabled sources, summarises each under the grounding rules, and
         files whatever survives for your review. Items already seen — including ones you
@@ -470,18 +494,26 @@ function GenerateModal({ open, feeds, onClose, onDone }: {
       <div className="mt-5 flex gap-3">
         <button
           onClick={onClose}
-          disabled={busy}
-          className="flex-1 h-11 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 font-semibold text-sm transition-colors disabled:opacity-50"
+          className="flex-1 h-11 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 font-semibold text-sm transition-colors"
         >
           Close
         </button>
-        <button
-          onClick={run}
-          disabled={busy}
-          className="flex-1 h-11 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors disabled:opacity-60"
-        >
-          {busy ? 'Running…' : 'Generate'}
-        </button>
+        {busy ? (
+          <button
+            onClick={stop}
+            disabled={stopping}
+            className="flex-1 h-11 rounded-lg bg-rose-500/90 hover:bg-rose-500 text-white font-bold text-sm transition-colors disabled:opacity-60"
+          >
+            {stopping ? 'Stopping…' : 'Stop run'}
+          </button>
+        ) : (
+          <button
+            onClick={run}
+            className="flex-1 h-11 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors"
+          >
+            Generate
+          </button>
+        )}
       </div>
     </Modal>
   )

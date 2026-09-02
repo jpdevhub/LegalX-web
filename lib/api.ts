@@ -845,7 +845,7 @@ export interface IngestReport {
 }
 
 export interface IngestJob {
-  status: 'idle' | 'running' | 'done' | 'failed'
+  status: 'idle' | 'running' | 'done' | 'failed' | 'cancelled'
   startedAt: string | null
   finishedAt: string | null
   processed: number
@@ -872,6 +872,11 @@ export async function apiStartIngest(limit = 8, feeds?: string[]): Promise<Inges
 
 export async function apiGetIngestStatus(): Promise<IngestJob> {
   return apiFetch('/api/admin/shorts/ingest-status')
+}
+
+/** Stops the current run. Anything already created stays in the queue. */
+export async function apiCancelIngest(): Promise<IngestJob> {
+  return apiFetch('/api/admin/shorts/ingest-cancel', { method: 'POST' })
 }
 
 export async function apiIngestShort(input: {

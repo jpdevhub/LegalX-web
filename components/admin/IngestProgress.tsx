@@ -76,7 +76,7 @@ export function IngestProgress({ job, target }: { job: IngestJob; target: number
         </p>
 
         <p className="mt-2 text-[11px] text-slate-600">
-          Runs in the background — you can close this and carry on.
+          Runs in the background — close this and it keeps going, or press Stop to end it.
         </p>
       </div>
     </div>
