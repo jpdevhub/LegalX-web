@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { labelFor } from '@/components/sections/knowledge/KnowledgeFeed'
 import { apiGetShortsArchive, apiGetShortsMonths, type LegalShort } from '@/lib/api'
 
 // The archive changes only when something is published, so it can be cached
@@ -119,7 +120,7 @@ export default async function ArchivePage({
               >
                 <div className="flex items-center gap-2 flex-wrap mb-3">
                   <span className="px-2 py-0.5 rounded bg-[#C9A227]/15 text-[10px] font-bold uppercase tracking-wide text-[#D4AF37]">
-                    {s.category}
+                    {labelFor(s.category)}
                   </span>
                   {s.published_at && (
                     <span className="text-[11px] text-slate-600">

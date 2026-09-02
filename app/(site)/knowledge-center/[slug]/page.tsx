@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { labelFor } from '@/components/sections/knowledge/KnowledgeFeed'
 import { notFound } from 'next/navigation'
 import { apiGetShort } from '@/lib/api'
 
@@ -39,7 +40,7 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
 
         <div className="flex items-center gap-2 flex-wrap mb-4">
           <span className="px-2.5 py-1 rounded-full bg-[#C9A227]/15 border border-[#C9A227]/25 text-[11px] font-bold uppercase tracking-wide text-[#D4AF37]">
-            {short.category}
+            {labelFor(short.category)}
           </span>
           {short.court && (
             <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] text-slate-400">
