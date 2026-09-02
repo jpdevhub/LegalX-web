@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { labelFor } from '@/components/sections/knowledge/KnowledgeFeed'
+import { labelFor, ctaFor } from '@/components/sections/knowledge/KnowledgeFeed'
 import { notFound } from 'next/navigation'
 import { apiGetShort } from '@/lib/api'
 
@@ -75,6 +75,79 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
           </div>
         )}
 
+        {/*
+          Article structured data. The Knowledge Centre is the discovery funnel
+          and had no schema at all, so search engines had nothing to work with
+          beyond raw text.
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Article',
+              headline: short.title,
+              description: short.summary.slice(0, 250),
+              datePublished: short.published_at ?? short.created_at,
+              dateModified: short.published_at ?? short.created_at,
+              articleSection: labelFor(short.category),
+              keywords: (short.tags ?? []).join(', '),
+              inLanguage: 'en-IN',
+              author: { '@type': 'Organization', name: 'LegalXOnline' },
+              publisher: {
+                '@type': 'Organization',
+                name: 'LegalXOnline',
+                url: 'https://www.legalxonline.com',
+              },
+              isBasedOn: short.source_url ?? undefined,
+              mainEntityOfPage: {
+                '@type': 'WebPage',
+                '@id': `https://www.legalxonline.com/knowledge-center/${short.slug}`,
+              },
+            }),
+          }}
+        />
+
+        {(short.affects_whom || short.action_required === 'yes' || short.deadline) && (
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {short.affects_whom && (
+              <div className="rounded-lg bg-white/[0.03] border border-white/8 p-3.5">
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Who this affects</p>
+                <p className="text-sm text-slate-200">{short.affects_whom}</p>
+              </div>
+            )}
+            {short.deadline && (
+              <div className="rounded-lg bg-amber-500/[0.07] border border-amber-500/25 p-3.5">
+                <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wide mb-1">Deadline</p>
+                <p className="text-sm text-amber-200">
+                  {new Date(short.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {short.key_points && short.key_points.length > 0 && (
+          <div className="mt-6">
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Key points</p>
+            <ul className="space-y-1.5">
+              {short.key_points.map((point, i) => (
+                <li key={i} className="flex gap-2.5 text-sm text-slate-300">
+                  <span className="text-[#C9A227] mt-0.5">•</span>
+                  {point}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {short.statute_reference && (
+          <p className="mt-5 text-xs text-slate-500">
+            <span className="font-semibold text-slate-400">Reference: </span>
+            {short.statute_reference}
+          </p>
+        )}
+
         <div className="mt-8 pt-6 border-t border-white/8 flex flex-wrap gap-3">
           {short.source_url && (
             <a
@@ -87,17 +160,26 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
             </a>
           )}
           <Link
-            href="/talk-to-lawyer"
+            href={ctaFor(short.category).href}
             className="px-4 h-10 inline-flex items-center rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] text-sm font-bold transition-colors"
           >
-            Ask a lawyer about this
+            {ctaFor(short.category).label}
           </Link>
         </div>
 
-        <p className="mt-8 text-[11px] text-slate-600 leading-relaxed">
-          This summary is drawn from the official source record and reviewed before publication.
-          It is general information, not legal advice, and does not create a lawyer–client relationship.
-        </p>
+        {/* Stated on the card itself, not only in the terms — this is a legal
+            services brand publishing summaries of law. */}
+        <div className="mt-8 rounded-lg bg-white/[0.02] border border-white/8 p-4">
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            <span className="font-semibold text-slate-400">Not legal advice. </span>
+            This summary is drawn from
+            {short.source_name ? ` ${short.source_name}` : ' the official source record'} and reviewed
+            by our team before publication. It is general information about the law as stated in that
+            source, does not account for your circumstances, and does not create a lawyer–client
+            relationship. Laws change and summaries can lag — check the original source, linked above,
+            before relying on anything here.
+          </p>
+        </div>
       </article>
     </div>
   )
