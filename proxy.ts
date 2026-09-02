@@ -73,29 +73,38 @@ export async function proxy(request: NextRequest) {
   const allowedRoles: Role[] = guard ? guard.roles : ['client']
 
   const accessToken = request.cookies.get('lx_access_token')?.value
-  if (!accessToken) return redirectToLogin(request, pathname)
+  const refreshToken = request.cookies.get('lx_refresh_token')?.value
+
+  // Only truly anonymous if BOTH are gone. Bailing on a missing access token
+  // alone stranded users whose access cookie had expired while a perfectly
+  // valid refresh token sat unused beside it.
+  if (!accessToken && !refreshToken) return redirectToLogin(request, pathname)
 
   try {
-    // Ask the backend to validate the token — it uses Supabase service_role internally
-    const res = await fetch(`${BACKEND_URL}/api/auth/me`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      // Short timeout so invalid sessions don't hang the page
-      signal: AbortSignal.timeout(3000),
-    })
-
-    let authRes = res
+    let authRes: Response
+    if (accessToken) {
+      // Ask the backend to validate the token — it uses Supabase service_role internally
+      authRes = await fetch(`${BACKEND_URL}/api/auth/me`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        // Short timeout so invalid sessions don't hang the page
+        signal: AbortSignal.timeout(3000),
+      })
+    } else {
+      // No access token, but a refresh token exists — go straight to refresh.
+      authRes = new Response(null, { status: 401 })
+    }
     // Access tokens expire hourly. Before bouncing someone to login, spend the
     // refresh cookie — otherwise navigating after an hour idle looks like the
     // session broke, even though the refresh token is still valid for 30 days.
     let refreshedCookies: string[] = []
-    if (!authRes.ok && request.cookies.get('lx_refresh_token')?.value) {
+    if (!authRes.ok && refreshToken) {
       const refreshRes = await fetch(`${BACKEND_URL}/api/auth/refresh`, {
         method: 'POST',
-        headers: { Cookie: `lx_refresh_token=${request.cookies.get('lx_refresh_token')!.value}` },
+        headers: { Cookie: `lx_refresh_token=${refreshToken}` },
         signal: AbortSignal.timeout(5000),
       }).catch(() => null)
 
