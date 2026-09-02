@@ -157,7 +157,15 @@ export function Footer() {
           </div>
         </div>
       </div>
-    </footer>
+          <div className="border-t border-hairline dark:border-white/10 px-5 md:px-16 py-4">
+        <p className="max-w-[1400px] mx-auto text-[11px] text-muted leading-relaxed text-center">
+          LegalXOnline provides legal information and connects users with independent advocates.
+          Content in the Knowledge Center is general information, not legal advice, and does not
+          create a lawyer–client relationship. Advocates listed here are independently practising
+          professionals responsible for their own advice.
+        </p>
+      </div>
+</footer>
   )
 }
 

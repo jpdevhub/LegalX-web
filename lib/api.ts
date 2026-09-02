@@ -713,6 +713,14 @@ export interface LegalShort {
   likes_count: number
   published_at: string | null
   created_at: string
+  /** 'high' = directly actionable, 'moderate' = worth knowing. */
+  relevance_tier?: 'high' | 'moderate' | null
+  affects_whom?: string | null
+  action_required?: 'yes' | 'no' | 'conditional' | null
+  deadline?: string | null
+  key_points?: string[] | null
+  statute_reference?: string | null
+  expires_on?: string | null
 }
 
 export interface ShortsPage {
@@ -725,6 +733,11 @@ export async function apiGetShorts(
   params: { category?: string; before?: string; limit?: number } = {}
 ): Promise<ShortsPage> {
   return apiFetch<ShortsPage>(`/api/shorts${buildQuery(params)}`)
+}
+
+export async function apiSearchShorts(q: string, limit = 20): Promise<LegalShort[]> {
+  const data = await apiFetch<{ shorts: LegalShort[] }>(`/api/shorts/search${buildQuery({ q, limit })}`)
+  return data.shorts
 }
 
 export async function apiGetShortCategories(): Promise<{ name: string; count: number }[]> {
