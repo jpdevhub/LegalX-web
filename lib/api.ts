@@ -839,6 +839,8 @@ export interface IngestJob {
   total: number
   report: IngestReport | null
   error: string | null
+  /** Set while waiting out a provider quota, so the UI can explain the pause. */
+  cooldownUntil: string | null
   alreadyRunning?: boolean
 }
 
