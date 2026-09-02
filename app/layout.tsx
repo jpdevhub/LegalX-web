@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { DarkModeProvider } from '@/components/providers/DarkModeProvider'
@@ -10,6 +10,26 @@ const inter = Inter({
   weight: ['400', '500', '600', '700'],
   display: 'swap',
 })
+
+/**
+ * Status-bar colour in the installed PWA.
+ *
+ * Declared explicitly and per colour-scheme. Without a theme-color meta tag
+ * Android falls back to whatever manifest it cached at install time, which is
+ * why the bar was showing gold long after the manifest said otherwise. These
+ * values match the page background, so the bar reads as part of the OS rather
+ * than as branding painted over it.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0A0D14' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
+  // Let the page paint behind the status bar rather than under a coloured band.
+  viewportFit: 'cover',
+}
 
 export const metadata: Metadata = {
   title: {
