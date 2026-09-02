@@ -6,12 +6,13 @@ import { apiGetShorts, apiGetShortCategories, type LegalShort } from '@/lib/api'
 /**
  * Incremental Static Regeneration.
  *
- * The feed is public, read-only content that changes a handful of times a day,
- * so it is rendered once and served from the edge. This also keeps the Render
- * free-tier backend out of the reader's path — a cold start would otherwise add
- * ~50s to a first visit.
+ * The server render is a fast first paint that also keeps the Render free-tier
+ * backend out of the critical path — a cold start would otherwise add ~50s to a
+ * first visit. The feed component re-fetches on mount, so a card published
+ * since the last regeneration still appears immediately; this window only
+ * affects what shows for the first few hundred milliseconds.
  */
-export const revalidate = 900 // 15 minutes
+export const revalidate = 60
 
 export const metadata: Metadata = {
   title: 'Knowledge Center — Daily Legal Updates | LegalXOnline',
@@ -33,7 +34,7 @@ export default async function ShortsPage() {
   let categories: { name: string; count: number }[] = []
 
   try {
-    initial = await apiGetShorts({ limit: 10 })
+    initial = await apiGetShorts({ limit: 20 })
   } catch {
     // Feed renders its empty state.
   }
@@ -56,8 +57,8 @@ export default async function ShortsPage() {
           of case law — the boundary needs to be stated on the page itself, not
           buried in the terms. */}
       <div className="px-5 py-3 border-t border-white/8 text-center">
-        <Link href="/knowledge-center/archive" className="text-xs font-semibold text-[#D4AF37] hover:text-white transition-colors">
-          Browse the full archive →
+        <Link href="/knowledge-center/archive" className="text-xs text-slate-500 hover:text-[#D4AF37] transition-colors">
+          Browse by month
         </Link>
         <p className="mt-2 text-[11px] text-slate-600">
           Summaries are drawn from official sources and reviewed before publication.

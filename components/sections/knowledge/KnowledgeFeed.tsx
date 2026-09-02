@@ -14,6 +14,10 @@ import { apiGetShorts, type LegalShort } from '@/lib/api'
  * it never drives the scroll itself.
  */
 
+// One screen per card, so a generous page keeps scrolling smooth without
+// hammering the backend.
+const PAGE_SIZE = 20
+
 const CATEGORY_TONES: Record<string, string> = {
   Criminal:    'bg-rose-500/15 text-rose-300 border-rose-500/25',
   Civil:       'bg-blue-500/15 text-blue-300 border-blue-500/25',
@@ -55,6 +59,28 @@ export function KnowledgeFeed({
   const containerRef = useRef<HTMLDivElement>(null)
   const cardRefs = useRef<(HTMLElement | null)[]>([])
 
+  // Always re-fetch on mount.
+  //
+  // The page is statically generated for a fast first paint, but that snapshot
+  // is taken at build/revalidate time — so a card published since then would be
+  // invisible until the ISR window expired. The server HTML is the placeholder;
+  // this is the source of truth.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const page = await apiGetShorts({ limit: PAGE_SIZE })
+        if (cancelled) return
+        setShorts(page.shorts)
+        setCursor(page.nextCursor)
+        setHasMore(page.hasMore)
+      } catch {
+        // Keep whatever the server rendered.
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
   // Track the card in view for the progress rail.
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -79,7 +105,7 @@ export function KnowledgeFeed({
       const page = await apiGetShorts({
         category: category === 'all' ? undefined : category,
         before: cursor,
-        limit: 10,
+        limit: PAGE_SIZE,
       })
       setShorts(prev => [...prev, ...page.shorts])
       setCursor(page.nextCursor)
@@ -93,7 +119,7 @@ export function KnowledgeFeed({
 
   // Prefetch when the reader is three cards from the end.
   useEffect(() => {
-    if (hasMore && active >= shorts.length - 3) loadMore()
+    if (hasMore && active >= shorts.length - 5) loadMore()
   }, [active, shorts.length, hasMore, loadMore])
 
   const switchCategory = async (next: string) => {
@@ -102,7 +128,7 @@ export function KnowledgeFeed({
     setLoading(true)
     setActive(0)
     try {
-      const page = await apiGetShorts({ category: next === 'all' ? undefined : next, limit: 10 })
+      const page = await apiGetShorts({ category: next === 'all' ? undefined : next, limit: PAGE_SIZE })
       setShorts(page.shorts)
       setCursor(page.nextCursor)
       setHasMore(page.hasMore)
@@ -178,8 +204,10 @@ export function KnowledgeFeed({
 
             {!hasMore && shorts.length > 0 && (
               <div className="h-[40vh] flex flex-col items-center justify-center text-center px-6 snap-start">
-                <p className="text-sm text-slate-400">You're all caught up.</p>
-                <p className="text-xs text-slate-600 mt-1">Curated by our team every morning.</p>
+                <p className="text-sm text-slate-400">You've reached the end.</p>
+                <p className="text-xs text-slate-600 mt-1">
+                  That's every update we've published. New ones are added each morning.
+                </p>
                 <Link
                   href="/talk-to-lawyer"
                   className="mt-5 px-5 py-2.5 rounded-lg bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-sm transition-colors"
