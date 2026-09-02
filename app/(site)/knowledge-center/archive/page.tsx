@@ -66,10 +66,10 @@ export default async function ArchivePage({
           ← Knowledge Center
         </Link>
 
-        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Archive</h1>
+        <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">Browse by month</h1>
         <p className="text-sm text-slate-400 mb-7">
           {total > 0
-            ? `${total} update${total === 1 ? '' : 's'} published${params.month ? ` in ${monthLabel(params.month)}` : ''}.`
+            ? `${total} update${total === 1 ? '' : 's'}${params.month ? ` published in ${monthLabel(params.month)}` : ' published so far'}. Everything here also appears in the main feed.`
             : 'Nothing published yet.'}
         </p>
 
