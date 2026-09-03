@@ -23,8 +23,16 @@ import { ctaFor, labelFor, toneFor, timeAgo } from '@/lib/knowledge'
 
 const PAGE_SIZE = 20
 
-/** Header (64px) + filter bar (53px) — the space the feed must fit inside. */
-const CHROME_PX = 64 + 53
+/**
+ * Chrome above the feed: site header (64px) + section nav (49px) + this
+ * component's own filter bar (53px). The snap container is sized against the
+ * total, so a card fills exactly the space left and one swipe moves exactly
+ * one card. Change any of these and the snap drifts.
+ */
+const HEADER_PX = 64
+const SECTION_NAV_PX = 49
+const FILTER_BAR_PX = 53
+const CHROME_PX = HEADER_PX + SECTION_NAV_PX + FILTER_BAR_PX
 const VIEWPORT = `calc(100dvh - ${CHROME_PX}px)`
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────────
@@ -223,7 +231,10 @@ export function KnowledgeFeed({
       {/* Filter bar. Height is fixed at 53px because the feed viewport is
           measured against it — the mobile category panel therefore overlays
           rather than pushing the feed down. */}
-      <div className="sticky top-16 z-30 h-[53px] bg-[#0A0D14]/95 backdrop-blur-md border-b border-white/8">
+      <div
+        className="sticky z-20 h-[53px] bg-[#0A0D14]/95 backdrop-blur-md border-b border-white/8"
+        style={{ top: `${HEADER_PX + SECTION_NAV_PX}px` }}
+      >
         <div className="max-w-[900px] mx-auto h-full flex items-center gap-2.5 px-4 sm:px-6">
           <h1 className="hidden lg:block text-[15px] font-bold text-white whitespace-nowrap">
             Knowledge Center
@@ -288,7 +299,8 @@ export function KnowledgeFeed({
         {filtersOpen && (
           <>
             <button
-              className="sm:hidden fixed inset-0 top-[117px] z-10 bg-black/40 cursor-default"
+              className="sm:hidden fixed inset-0 z-10 bg-black/40 cursor-default"
+              style={{ top: `${CHROME_PX}px` }}
               onClick={() => setFiltersOpen(false)}
               aria-label="Close categories"
               tabIndex={-1}
