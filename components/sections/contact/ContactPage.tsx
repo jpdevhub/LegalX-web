@@ -206,7 +206,7 @@ export function ContactPage() {
                   </Button>
 
                   <p className="text-body-sm text-muted text-center">
-                    🔒 Protected by attorney-client privilege. Your information is fully encrypted.
+                    Protected by attorney-client privilege. Your information is fully encrypted.
                   </p>
                 </form>
               )}

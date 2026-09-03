@@ -1,10 +1,29 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { labelFor, ctaFor } from '@/components/sections/knowledge/KnowledgeFeed'
+import { labelFor, ctaFor, formatDate } from '@/lib/knowledge'
 import { notFound } from 'next/navigation'
 import { apiGetShort } from '@/lib/api'
 
 export const revalidate = 3600
+
+/**
+ * A card published since the last regeneration must still resolve rather than
+ * 404 — the feed links to it the moment it goes live.
+ */
+export const dynamicParams = true
+
+/**
+ * apiGetShort swallows its own errors and returns null, but a network-level
+ * throw would still surface as a 500. The page is public and indexed, so an
+ * unreachable backend has to degrade to "not found", never to an error screen.
+ */
+async function loadShort(slug: string) {
+  try {
+    return await apiGetShort(slug)
+  } catch {
+    return null
+  }
+}
 
 // Shared links are the main way these spread, so the card needs real metadata
 // rather than the site-wide default.
@@ -12,23 +31,25 @@ export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const { slug } = await params
-  const short = await apiGetShort(slug)
+  const short = await loadShort(slug)
   if (!short) return { title: 'Not found | LegalXOnline' }
 
   return {
     title: `${short.title} | LegalX Knowledge Center`,
     description: short.summary.slice(0, 160),
+    alternates: { canonical: `/knowledge-center/${slug}` },
     openGraph: {
       title: short.title,
       description: short.summary.slice(0, 200),
       type: 'article',
+      url: `/knowledge-center/${slug}`,
     },
   }
 }
 
 export default async function ShortPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
-  const short = await apiGetShort(slug)
+  const short = await loadShort(slug)
   if (!short) notFound()
 
   return (
@@ -49,7 +70,7 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
           )}
           {short.judgment_date && (
             <span className="text-[11px] text-slate-500">
-              {new Date(short.judgment_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDate(short.judgment_date)}
             </span>
           )}
         </div>
@@ -120,7 +141,7 @@ export default async function ShortPage({ params }: { params: Promise<{ slug: st
               <div className="rounded-lg bg-amber-500/[0.07] border border-amber-500/25 p-3.5">
                 <p className="text-[11px] font-semibold text-amber-400 uppercase tracking-wide mb-1">Deadline</p>
                 <p className="text-sm text-amber-200">
-                  {new Date(short.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  {formatDate(short.deadline)}
                 </p>
               </div>
             )}

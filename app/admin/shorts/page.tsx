@@ -235,7 +235,7 @@ export default function AdminShortsPage() {
                   <p className="text-sm text-slate-400 mt-1.5">{s.summary}</p>
 
                   {s.takeaway && (
-                    <p className="text-sm text-[#D4AF37] mt-2">💡 {s.takeaway}</p>
+                    <p className="text-sm text-[#D4AF37] mt-2">{s.takeaway}</p>
                   )}
 
                   {/* The grounding anchor. Shown so the editor can check the

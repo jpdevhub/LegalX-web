@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { apiGetLawyers, type ApiLawyer } from '@/lib/api'
+import { ConsultIcon, SearchIcon } from '@/components/ui/ConsultIcons'
 
 const SPECIALIZATIONS = [
   'All',
@@ -31,9 +32,9 @@ function Stars({ rating }: { rating: number }) {
 // ── Skeleton card ─────────────────────────────────────────────────────────────
 function SkeletonCard() {
   return (
-    <div className="bg-[#0E1220] border border-white/8 rounded-2xl p-5 animate-pulse">
+    <div className="bg-[#0E1220] border border-white/8 rounded-sm p-5 animate-pulse">
       <div className="flex items-start gap-4 mb-4">
-        <div className="w-14 h-14 rounded-xl bg-white/8 flex-shrink-0" />
+        <div className="w-14 h-14 rounded-sm bg-white/8 flex-shrink-0" />
         <div className="flex-1 space-y-2">
           <div className="h-4 bg-white/8 rounded w-3/4" />
           <div className="h-3 bg-white/5 rounded w-1/2" />
@@ -53,17 +54,15 @@ function LawyerCard({ lawyer }: { lawyer: ApiLawyer }) {
   return (
     <Link
       href={`/talk-to-lawyer/${lawyer.slug}`}
-      className="group relative flex flex-col bg-[#0E1220] border border-white/8 rounded-2xl overflow-hidden
+      className="group relative flex flex-col bg-[#0E1220] border border-white/8 rounded-sm overflow-hidden
         hover:border-[#C9A227]/40 hover:shadow-[0_0_40px_rgba(201,162,39,0.08)] transition-all duration-300"
     >
-      {/* Online pulse */}
+      {/* Availability. A steady dot: this is status, and the pulse animation
+          made every card compete for attention. */}
       {lawyer.online && (
         <span className="absolute top-4 right-4 flex items-center gap-1.5">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-          </span>
-          <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-widest">Online</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+          <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Online</span>
         </span>
       )}
 
@@ -73,7 +72,7 @@ function LawyerCard({ lawyer }: { lawyer: ApiLawyer }) {
           {/* Avatar */}
           <div className="relative flex-shrink-0">
             <div
-              className="w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg"
+              className="w-14 h-14 rounded-sm flex items-center justify-center text-white font-bold text-lg shadow-lg"
               style={{ backgroundColor: lawyer.avatarBg }}
             >
               {lawyer.initials}
@@ -131,14 +130,14 @@ function LawyerCard({ lawyer }: { lawyer: ApiLawyer }) {
       {/* Fee grid */}
       <div className="grid grid-cols-3 gap-px bg-white/5 border-t border-white/8 mt-auto">
         {([
-          { label: 'Chat', fee: lawyer.fees.chat, icon: '💬' },
-          { label: 'Voice', fee: lawyer.fees.voice, icon: '📞' },
-          { label: 'Video', fee: lawyer.fees.video, icon: '📹' },
+          { label: 'Chat', fee: lawyer.fees.chat, channel: 'chat' },
+          { label: 'Voice', fee: lawyer.fees.voice, channel: 'voice' },
+          { label: 'Video', fee: lawyer.fees.video, channel: 'video' },
         ] as const).map((opt) => (
-          <div key={opt.label} className="bg-[#0E1220] px-3 py-3 text-center hover:bg-white/5 transition-colors">
-            <div className="text-base mb-0.5">{opt.icon}</div>
+          <div key={opt.label} className="bg-[#0E1220] px-3 py-3 text-center group-hover:bg-white/[0.02] transition-colors">
+            <ConsultIcon channel={opt.channel} className="w-4 h-4 mx-auto mb-1.5 text-slate-500" />
             <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">{opt.label}</div>
-            <div className="text-sm font-bold text-white mt-0.5">
+            <div className="text-sm font-bold text-white mt-0.5 tabular-nums">
               ₹{opt.fee}<span className="text-[10px] text-slate-500 font-normal">/min</span>
             </div>
           </div>
@@ -156,6 +155,10 @@ export default function TalkToLawyerPage() {
   const [selectedSpec, setSelectedSpec] = useState('All')
   const [onlineOnly, setOnlineOnly]   = useState(false)
   const [sortBy, setSortBy]           = useState<'rating' | 'experience' | 'price'>('rating')
+  // The filter panel is a full-height column on desktop, but on a phone it sat
+  // above the results and pushed every lawyer below the fold. Collapsed by
+  // default there, always open from lg up.
+  const [filtersOpen, setFiltersOpen] = useState(false)
 
   useEffect(() => {
     apiGetLawyers()
@@ -165,6 +168,29 @@ export default function TalkToLawyerPage() {
   }, [])
 
   const onlineCount = lawyers.filter((l) => l.online).length
+
+  // Derived from the roster, never asserted. If a number cannot be computed
+  // from real lawyers it is not shown.
+  const stats = useMemo(() => {
+    if (lawyers.length === 0) return []
+    const verified = lawyers.filter((l) => l.verified).length
+    const areas = new Set(lawyers.flatMap((l) => l.specializations ?? [])).size
+    const cases = lawyers.reduce((sum, l) => sum + (l.casesHandled || 0), 0)
+    const rated = lawyers.filter((l) => l.rating > 0)
+    const avg = rated.length
+      ? (rated.reduce((sum, l) => sum + l.rating, 0) / rated.length).toFixed(1)
+      : null
+    const years = lawyers.reduce((sum, l) => sum + (l.experience || 0), 0)
+
+    return [
+      { label: 'Verified', value: String(verified) },
+      { label: 'Practice areas', value: String(areas) },
+      cases > 0
+        ? { label: 'Cases handled', value: cases.toLocaleString('en-IN') }
+        : { label: 'Years combined', value: String(years) },
+      avg ? { label: 'Avg rating', value: avg } : { label: 'Online now', value: String(onlineCount) },
+    ]
+  }, [lawyers, onlineCount])
 
   const filtered = useMemo(() => {
     let list = lawyers
@@ -207,31 +233,37 @@ export default function TalkToLawyerPage() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#C9A227]/6 blur-[120px] rounded-full" />
         </div>
 
-        <div className="relative max-w-6xl mx-auto px-6 pt-20 pb-16">
-          {/* Online badge */}
-          {onlineCount > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold px-3 py-1.5 rounded-full mb-6"
+        <div className="relative max-w-6xl mx-auto px-6 pt-14 sm:pt-20 pb-12 sm:pb-16">
+          {/* Availability. A steady dot, not a pulsing one — this is a status
+              readout, and the animation made it read as decoration. */}
+          {!loading && (
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="inline-flex items-center gap-2 text-xs font-medium mb-5"
             >
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+              <span className={`w-1.5 h-1.5 rounded-full ${onlineCount > 0 ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+              <span className={onlineCount > 0 ? 'text-emerald-400' : 'text-slate-500'}>
+                {onlineCount > 0
+                  ? `${onlineCount} available now`
+                  : 'No one online right now'}
               </span>
-              {onlineCount} lawyer{onlineCount !== 1 ? 's' : ''} available right now
-            </motion.div>
+              <span className="text-slate-600">·</span>
+              <span className="text-slate-500">
+                {lawyers.length} verified advocate{lawyers.length === 1 ? '' : 's'}
+              </span>
+            </motion.p>
           )}
 
           <motion.h1
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.05 }}
-            className="text-white font-bold mb-4 leading-tight"
-            style={{ fontSize: 'clamp(28px, 4.5vw, 52px)' }}
+            className="text-white font-bold mb-4 leading-[1.08] tracking-tight"
+            style={{ fontSize: 'clamp(30px, 4.5vw, 52px)' }}
           >
-            Find Your Expert<br />
-            <span className="text-[#C9A227]">Legal Advisor</span>
+            Find your expert<br />
+            <span className="text-[#C9A227]">legal advisor</span>
           </motion.h1>
 
           <motion.p
@@ -261,30 +293,36 @@ export default function TalkToLawyerPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by name, specialization, or location…"
-              className="w-full pl-11 pr-4 py-3.5 bg-[#0E1220] border border-white/10 rounded-xl text-white text-sm placeholder-slate-500
+              className="w-full pl-11 pr-4 py-3.5 bg-[#0E1220] border border-white/10 rounded-sm text-white text-sm placeholder-slate-500
                 focus:outline-none focus:border-[#C9A227]/50 focus:ring-1 focus:ring-[#C9A227]/20 transition-all"
             />
           </motion.div>
 
-          {/* Stats */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.25 }}
-            className="flex flex-wrap gap-8 mt-10"
-          >
-            {[
-              { v: `${lawyers.length}+`, l: 'Verified Lawyers' },
-              { v: '5', l: 'Practice Areas' },
-              { v: '6,200+', l: 'Cases Handled' },
-              { v: '4.8★', l: 'Avg Rating' },
-            ].map((s) => (
-              <div key={s.l} className="flex flex-col">
-                <span className="text-2xl font-bold text-white">{s.v}</span>
-                <span className="text-xs text-slate-500">{s.l}</span>
-              </div>
-            ))}
-          </motion.div>
+          {/*
+            Every figure here is computed from the lawyers actually on the
+            platform. These were hardcoded — "6,200+ cases handled", "4.8 avg
+            rating" — which is a claim the site cannot support and reads as
+            filler next to a real count of five.
+          */}
+          {!loading && lawyers.length > 0 && (
+            <motion.dl
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.25 }}
+              className="mt-10 grid grid-cols-2 sm:grid-cols-4 gap-px bg-white/8 border border-white/8 rounded-sm overflow-hidden max-w-2xl"
+            >
+              {stats.map((s) => (
+                <div key={s.label} className="bg-[#0E1220] px-4 py-3.5">
+                  <dt className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                    {s.label}
+                  </dt>
+                  <dd className="text-xl font-bold text-white tabular-nums mt-0.5">
+                    {s.value}
+                  </dd>
+                </div>
+              ))}
+            </motion.dl>
+          )}
         </div>
       </section>
 
@@ -292,9 +330,35 @@ export default function TalkToLawyerPage() {
       <section className="max-w-6xl mx-auto px-6 py-10">
         <div className="flex flex-col lg:flex-row gap-8">
 
+          {/* Mobile filter toggle */}
+          <button
+            onClick={() => setFiltersOpen(o => !o)}
+            aria-expanded={filtersOpen}
+            aria-controls="lawyer-filters"
+            className="lg:hidden w-full flex items-center justify-between gap-2 bg-[#0E1220] border border-white/8 rounded-sm px-4 py-3 text-sm font-semibold text-white"
+          >
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-[#C9A227]" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 6h16M7 12h10M10 18h4" />
+              </svg>
+              Filters &amp; sort
+              {(selectedSpec !== 'All' || onlineOnly) && (
+                <span className="px-1.5 py-0.5 rounded-full bg-[#C9A227] text-[#0A0D14] text-[10px] font-bold">
+                  {(selectedSpec !== 'All' ? 1 : 0) + (onlineOnly ? 1 : 0)}
+                </span>
+              )}
+            </span>
+            <svg className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${filtersOpen ? 'rotate-180' : ''}`}
+                 viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"
+                 strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              <path d="M6 9l6 6 6-6" />
+            </svg>
+          </button>
+
           {/* Sidebar */}
-          <aside className="lg:w-56 flex-shrink-0">
-            <div className="bg-[#0E1220] border border-white/8 rounded-2xl p-5 lg:sticky lg:top-24">
+          <aside id="lawyer-filters" className={`lg:w-56 flex-shrink-0 ${filtersOpen ? 'block' : 'hidden'} lg:block`}>
+            <div className="bg-[#0E1220] border border-white/8 rounded-sm p-5 lg:sticky lg:top-24">
               <div className="flex items-center justify-between mb-5">
                 <h2 className="text-sm font-semibold text-white">Filters</h2>
                 {(selectedSpec !== 'All' || onlineOnly) && (
@@ -339,8 +403,19 @@ export default function TalkToLawyerPage() {
                   }`}
                 >
                   Online Now
-                  <span className={`w-7 h-4 rounded-full relative transition-colors ${onlineOnly ? 'bg-emerald-500' : 'bg-white/10'}`}>
-                    <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-transform ${onlineOnly ? 'translate-x-3.5' : 'translate-x-0.5'}`} />
+                  {/* The knob was positioned absolute with no left anchor, so
+                      its translate-x had no origin and it sat outside the
+                      track — the switch read as a solid green bar. */}
+                  <span
+                    className={`relative shrink-0 w-8 h-[18px] rounded-full transition-colors ${
+                      onlineOnly ? 'bg-emerald-500' : 'bg-white/15'
+                    }`}
+                  >
+                    <span
+                      className={`absolute left-0.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                        onlineOnly ? 'translate-x-[14px]' : 'translate-x-0'
+                      }`}
+                    />
                   </span>
                 </button>
               </div>
@@ -391,8 +466,8 @@ export default function TalkToLawyerPage() {
                 {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
               </div>
             ) : filtered.length === 0 ? (
-              <div className="bg-[#0E1220] border border-white/8 border-dashed rounded-2xl p-16 text-center">
-                <p className="text-3xl mb-3">🔍</p>
+              <div className="bg-[#0E1220] border border-white/8 border-dashed rounded-sm p-16 text-center">
+                <SearchIcon className="w-7 h-7 mx-auto mb-3 text-slate-600" />
                 <p className="text-white font-medium mb-1">No lawyers match your filters</p>
                 <button
                   onClick={() => { setSearch(''); setSelectedSpec('All'); setOnlineOnly(false) }}
@@ -428,7 +503,7 @@ export default function TalkToLawyerPage() {
           </p>
           <Link
             href="/signup"
-            className="inline-flex items-center gap-2 bg-[#C9A227] hover:bg-[#B08A1E] text-black text-sm font-bold px-6 py-3 rounded-xl transition-colors"
+            className="inline-flex items-center gap-2 bg-[#C9A227] hover:bg-[#B08A1E] text-black text-sm font-bold px-6 py-3 rounded-sm transition-colors"
           >
             Apply as a Lawyer →
           </Link>

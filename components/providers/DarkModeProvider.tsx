@@ -12,48 +12,29 @@ const DarkModeContext = createContext<DarkModeContextType>({
   toggle: () => {},
 })
 
+/**
+ * The app is dark-surfaced, and only that.
+ *
+ * Roughly half the pages paint #0A0D14 / #080B12 / #0E1220 directly instead of
+ * going through the theme tokens, so switching to light produced a site that
+ * was light in the header and a few sections and black everywhere else. Rather
+ * than ship a toggle that works on some pages, the class is pinned on and the
+ * control has been removed from the header.
+ *
+ * The context is kept so existing consumers keep compiling; isDark is always
+ * true and toggle is a no-op. Restoring a real light theme means giving the
+ * hardcoded pages token-driven colours first — a separate piece of work.
+ */
 export function DarkModeProvider({ children }: { children: React.ReactNode }) {
-  const [isDark, setIsDark] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
   useEffect(() => {
-    // Restore preference from localStorage — persists across pages and navigation
-    const saved = localStorage.getItem('legalx-theme')
-    const prefersDark =
-      saved === 'dark' ||
-      (saved === null && window.matchMedia('(prefers-color-scheme: dark)').matches)
-
-    if (prefersDark) {
-      document.documentElement.classList.add('dark')
-      setIsDark(true)
-    } else {
-      document.documentElement.classList.remove('dark')
-      setIsDark(false)
-    }
-    setMounted(true)
+    document.documentElement.classList.add('dark')
+    // Clear any stored 'light' from before the toggle was retired, so the
+    // pre-paint script in the root layout cannot reinstate it.
+    try { localStorage.setItem('legalx-theme', 'dark') } catch { /* ignore */ }
   }, [])
 
-  const toggle = () => {
-    setIsDark((prev) => {
-      const next = !prev
-      if (next) {
-        document.documentElement.classList.add('dark')
-        localStorage.setItem('legalx-theme', 'dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-        localStorage.setItem('legalx-theme', 'light')
-      }
-      return next
-    })
-  }
-
-  // Prevent hydration mismatch — render children immediately, theme applied via class on <html>
-  if (!mounted) {
-    return <>{children}</>
-  }
-
   return (
-    <DarkModeContext.Provider value={{ isDark, toggle }}>
+    <DarkModeContext.Provider value={{ isDark: true, toggle: () => {} }}>
       {children}
     </DarkModeContext.Provider>
   )

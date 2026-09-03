@@ -161,33 +161,37 @@ const MOCK_LAWYERS: ApiLawyer[] = [
 ]
 
 /**
- * Fetch all lawyers — tries the backend API first, falls back to mock data.
- * No Supabase or credentials involved in the frontend.
+ * The demo advocates above are a development convenience only.
+ *
+ * Serving them in production is a real hazard: a visitor sees a lawyer who does
+ * not exist, opens their profile, and tries to book a consultation with them.
+ * Outside development the backend is the only source, and an empty result is
+ * reported honestly as empty.
+ */
+const ALLOW_MOCKS = process.env.NODE_ENV === 'development'
+
+/**
+ * Fetch all lawyers. No Supabase or credentials involved in the frontend.
  */
 export async function getLawyers(): Promise<ApiLawyer[]> {
   try {
     const lawyers = await apiGetLawyers()
     if (lawyers && lawyers.length > 0) return lawyers
   } catch (err) {
-    // Backend offline or empty — use mock data
-    console.warn('[getLawyers] Backend unavailable, using mock data.', err)
+    console.warn('[getLawyers] Backend unavailable.', err)
   }
-  return MOCK_LAWYERS
+  return ALLOW_MOCKS ? MOCK_LAWYERS : []
 }
 
 /**
- * Fetch a single lawyer by slug — tries backend, falls back to mock.
+ * Fetch a single lawyer by slug.
  */
 export async function getLawyer(slug: string): Promise<ApiLawyer | undefined> {
-  // Always check mock first (instant, covers static slugs)
-  const mock = MOCK_LAWYERS.find((l) => l.slug === slug)
-
   try {
     const lawyer = await apiGetLawyer(slug)
     if (lawyer) return lawyer
   } catch {
-    // Backend offline
+    // Backend offline — fall through.
   }
-
-  return mock
+  return ALLOW_MOCKS ? MOCK_LAWYERS.find((l) => l.slug === slug) : undefined
 }
