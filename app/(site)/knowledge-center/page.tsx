@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { SectionNav } from '@/components/sections/knowledge/SectionNav'
 import { KnowledgeFeed } from '@/components/sections/knowledge/KnowledgeFeed'
 import { apiGetShorts, apiGetShortCategories, type LegalShort } from '@/lib/api'
 
@@ -47,11 +48,14 @@ export default async function ShortsPage() {
   // rather than below it: the feed fills the viewport one card at a time, so
   // anything appended here would sit in dead space nobody scrolls to.
   return (
-    <KnowledgeFeed
-      initialShorts={initial.shorts}
-      initialCursor={initial.nextCursor}
-      initialHasMore={initial.hasMore}
-      categories={categories}
-    />
+    <div className="bg-[#0A0D14]">
+      <SectionNav active="legal-updates" />
+      <KnowledgeFeed
+        initialShorts={initial.shorts}
+        initialCursor={initial.nextCursor}
+        initialHasMore={initial.hasMore}
+        categories={categories}
+      />
+    </div>
   )
 }
