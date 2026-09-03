@@ -1196,3 +1196,113 @@ export async function apiUpdateLawyerSettings(data: Partial<LawyerSettings>): Pr
     body: JSON.stringify(data),
   })
 }
+
+// ── Knowledge Centre: Know Your Rights ────────────────────────────────────────
+// Rights explainers imported from judgments and NCRB source documents. The
+// backend filters is_published on every one of these routes; nothing here can
+// request an unreviewed card.
+
+export interface KnowledgeCard {
+  id: string
+  slug: string
+  title: string
+  question: string | null
+  direct_answer: string | null
+  explanation?: string | null
+  card_text?: string | null
+  category: string
+  case_reference: string | null
+  suggested_questions?: string[]
+  source: string | null
+  source_url: string | null
+  source_tid?: string | null
+  cta_type: string | null
+  reviewed_by?: string | null
+  last_reviewed_at: string | null
+  published_at: string | null
+  created_at?: string | null
+}
+
+export interface KnowledgeRelated {
+  slug: string
+  title: string
+  direct_answer: string | null
+  category: string
+}
+
+export async function apiGetKnowledge(params: {
+  category?: string
+  page?: number
+  limit?: number
+} = {}): Promise<{ cards: KnowledgeCard[]; total: number; page: number; limit: number; hasMore: boolean }> {
+  return apiFetch(`/api/knowledge${buildQuery(params)}`)
+}
+
+export async function apiGetKnowledgeCard(
+  slug: string
+): Promise<{ card: KnowledgeCard; related: KnowledgeRelated[] } | null> {
+  try {
+    return await apiFetch<{ card: KnowledgeCard; related: KnowledgeRelated[] }>(
+      `/api/knowledge/${encodeURIComponent(slug)}`
+    )
+  } catch {
+    return null
+  }
+}
+
+export async function apiGetKnowledgeCategories(): Promise<{ name: string; count: number }[]> {
+  const data = await apiFetch<{ categories: { name: string; count: number }[] }>('/api/knowledge/categories')
+  return data.categories
+}
+
+export async function apiSearchKnowledge(q: string, limit = 20): Promise<KnowledgeCard[]> {
+  const data = await apiFetch<{ cards: KnowledgeCard[] }>(`/api/knowledge/search${buildQuery({ q, limit })}`)
+  return data.cards
+}
+
+/** Sitemap input: every published slug with its review date. */
+export async function apiGetKnowledgeSlugs(): Promise<
+  { slug: string; last_reviewed_at: string | null; published_at: string | null }[]
+> {
+  const data = await apiFetch<{
+    cards: { slug: string; last_reviewed_at: string | null; published_at: string | null }[]
+  }>('/api/knowledge/slugs')
+  return data.cards
+}
+
+// ── Admin: Know Your Rights review queue ─────────────────────────────────────
+
+export interface AdminKnowledgeCard extends KnowledgeCard {
+  is_published: boolean
+  rejected_reason: string | null
+  explanation: string | null
+  card_text: string | null
+}
+
+export async function apiGetAdminKnowledge(params: {
+  status?: 'pending' | 'published' | 'rejected' | 'all'
+  category?: string
+  search?: string
+  page?: number
+  pageSize?: number
+} = {}): Promise<{ cards: AdminKnowledgeCard[]; total: number; page: number; pageSize: number }> {
+  return apiFetch(`/api/admin/knowledge${buildQuery(params)}`)
+}
+
+export async function apiGetAdminKnowledgeCounts(): Promise<{
+  pending: number; published: number; rejected: number; total: number
+  pendingByCategory: { name: string; count: number }[]
+}> {
+  return apiFetch('/api/admin/knowledge/counts')
+}
+
+export async function apiBulkKnowledge(
+  ids: string[],
+  action: 'approve' | 'reject',
+  reason?: string
+): Promise<{ changed: number; skipped: number }> {
+  return apiFetch('/api/admin/knowledge/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ ids, action, reason }),
+  })
+}
