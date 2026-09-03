@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { labelFor } from '@/components/sections/knowledge/KnowledgeFeed'
+import { labelFor } from '@/lib/knowledge'
 import { apiGetShortsArchive, apiGetShortsMonths, type LegalShort } from '@/lib/api'
 
 // The archive changes only when something is published, so it can be cached

@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import Link from 'next/link'
 import { KnowledgeFeed } from '@/components/sections/knowledge/KnowledgeFeed'
 import { apiGetShorts, apiGetShortCategories, type LegalShort } from '@/lib/api'
 
@@ -44,31 +43,15 @@ export default async function ShortsPage() {
     // Chips are optional chrome.
   }
 
+  // The archive link and the not-advice notice live on the feed's final slide
+  // rather than below it: the feed fills the viewport one card at a time, so
+  // anything appended here would sit in dead space nobody scrolls to.
   return (
-    <div className="bg-[#0A0D14]">
-      <KnowledgeFeed
-        initialShorts={initial.shorts}
-        initialCursor={initial.nextCursor}
-        initialHasMore={initial.hasMore}
-        categories={categories}
-      />
-
-      {/* Not-advice notice. This is a legal-services brand publishing summaries
-          of case law — the boundary needs to be stated on the page itself, not
-          buried in the terms. */}
-      <div className="px-5 py-3 border-t border-white/8 text-center">
-        <Link href="/knowledge-center/archive" className="text-xs text-slate-500 hover:text-[#D4AF37] transition-colors">
-          Browse by month
-        </Link>
-        <p className="mt-2 text-[11px] text-slate-600">
-          Summaries are drawn from official sources and reviewed before publication.
-          They are general information, not legal advice.{' '}
-          <Link href="/talk-to-lawyer" className="text-slate-500 hover:text-[#D4AF37] underline">
-            Speak to a lawyer
-          </Link>{' '}
-          about your situation.
-        </p>
-      </div>
-    </div>
+    <KnowledgeFeed
+      initialShorts={initial.shorts}
+      initialCursor={initial.nextCursor}
+      initialHasMore={initial.hasMore}
+      categories={categories}
+    />
   )
 }

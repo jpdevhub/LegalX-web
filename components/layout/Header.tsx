@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useDarkMode } from '@/components/providers/DarkModeProvider'
 import { Button } from '@/components/ui/Button'
 import { LXLogoMark } from '@/components/ui/LXLogo'
 import { cn } from '@/lib/utils'
@@ -23,7 +22,6 @@ const NAV_ITEMS = [
 export function Header() {
   const pathname = usePathname()
   const router   = useRouter()
-  const { isDark, toggle } = useDarkMode()
 
   const [scrolled,     setScrolled]     = useState(false)
   const [drawerOpen,   setDrawerOpen]   = useState(false)
@@ -117,14 +115,15 @@ export function Header() {
           {/* Right actions */}
           <div className="flex items-center gap-2 md:gap-3">
 
-            {/* Dark mode toggle */}
-            <button
-              onClick={toggle}
-              aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              className="w-9 h-9 rounded-sm flex items-center justify-center text-body-text dark:text-slate-400 hover:bg-surface-soft dark:hover:bg-surface-soft-dark transition-colors duration-150"
-            >
-              {isDark ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}
-            </button>
+            {/*
+              The light/dark toggle was removed rather than repaired.
+              Most of the site — the knowledge feed, the lawyer listing and
+              profiles, the admin portal — paints its colours directly rather
+              than through the theme tokens, so the switch only ever changed
+              about half the pages and left the rest dark. A control that does
+              nothing on the page you are looking at is worse than no control.
+              LegalX is a dark-surfaced product; the app now commits to that.
+            */}
 
             {/* Auth — skeleton while loading */}
             {authLoading ? (
@@ -370,12 +369,6 @@ function DropdownItem({ href, onClick, icon, children }: { href: string; onClick
 }
 
 // ── SVG icons (all have suppressHydrationWarning for DarkReader compat) ───────
-function MoonIcon({ className }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" strokeLinecap="round" strokeLinejoin="round" /></svg>
-}
-function SunIcon({ className }: { className?: string }) {
-  return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><circle cx="12" cy="12" r="5" /><path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" strokeLinecap="round" /></svg>
-}
 function MenuIcon({ className }: { className?: string }) {
   return <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round" /></svg>
 }

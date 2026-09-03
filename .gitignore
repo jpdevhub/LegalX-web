@@ -40,3 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 ._*
+
+# Act texts belong to the backend repo, not here.
+data/

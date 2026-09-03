@@ -19,10 +19,21 @@ function getCsrfToken(): string | undefined {
   return match ? decodeURIComponent(match[2]) : undefined
 }
 
-// Determine base URL for fetch (relative in browser, absolute in SSR)
+/**
+ * Base URL for fetch — relative in the browser, absolute during SSR.
+ *
+ * The server branch reads BACKEND_URL first, which is the variable
+ * next.config.ts already requires for its rewrites. It previously read only
+ * NEXT_PUBLIC_BACKEND_URL, so a deployment that set BACKEND_URL alone — the
+ * one the config file tells you to set — had every server render fetching
+ * http://localhost:4000 and failing. Read at call time rather than inlined at
+ * build time, so a value set in the dashboard applies without a rebuild.
+ */
 function getBaseUrl(): string {
   if (typeof window !== 'undefined') return '' // Client: use Next.js rewrites
-  return BACKEND_URL // Server: direct to backend
+  return process.env.BACKEND_URL
+    || process.env.NEXT_PUBLIC_BACKEND_URL
+    || BACKEND_URL
 }
 
 // Fetch CSRF token from backend via Next.js proxy (sets cookie)

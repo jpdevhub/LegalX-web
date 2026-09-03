@@ -16,6 +16,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { ConsultIcon } from '@/components/ui/ConsultIcons'
 import { apiFetch, apiGetMe } from '@/lib/api'
 import type { ApiLawyer } from '@/lib/api'
 
@@ -23,9 +24,9 @@ import type { ApiLawyer } from '@/lib/api'
 const TEST_MODE = true
 
 const CONSULT_TYPES = [
-  { key: 'chat',  label: 'Chat',  icon: '💬', desc: 'Text messages + document sharing' },
-  { key: 'voice', label: 'Voice', icon: '📞', desc: 'Crystal-clear audio call' },
-  { key: 'video', label: 'Video', icon: '📹', desc: 'Face-to-face HD video call' },
+  { key: 'chat',  label: 'Chat',  desc: 'Text messages + document sharing' },
+  { key: 'voice', label: 'Voice', desc: 'Crystal-clear audio call' },
+  { key: 'video', label: 'Video', desc: 'Face-to-face HD video call' },
 ] as const
 
 type ConsultType = typeof CONSULT_TYPES[number]['key']
@@ -172,7 +173,7 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
   }, [lawyer, type, router])
 
   return (
-    <div className="bg-[#0E1220] border border-white/10 rounded-2xl overflow-hidden">
+    <div className="bg-[#0E1220] border border-white/10 rounded-sm overflow-hidden">
       {/* Header */}
       <div className="px-6 pt-6 pb-4 border-b border-white/8">
         <div className="flex items-center justify-between mb-1">
@@ -187,14 +188,11 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
         <div className="flex items-center gap-2 mt-1">
           {lawyer.online ? (
             <span className="flex items-center gap-1.5 text-xs text-emerald-400 font-semibold">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
               Available now
             </span>
           ) : (
-            <span className="text-xs text-slate-500">⚪ Currently offline</span>
+            <span className="text-xs text-slate-500">Currently offline</span>
           )}
         </div>
       </div>
@@ -208,13 +206,13 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
               key={t.key}
               id={`consult-type-${t.key}`}
               onClick={() => setType(t.key)}
-              className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-center transition-all ${
+              className={`flex flex-col items-center gap-1 p-3 rounded-sm border text-center transition-all ${
                 type === t.key
                   ? 'border-[#C9A227]/50 bg-[#C9A227]/10 text-[#C9A227]'
                   : 'border-white/8 text-slate-400 hover:border-white/20 hover:text-slate-300'
               }`}
             >
-              <span className="text-lg">{t.icon}</span>
+              <ConsultIcon channel={t.key} className="w-4 h-4" />
               <span className="text-[11px] font-semibold">{t.label}</span>
               <span className="text-[10px] font-bold text-[#C9A227]">₹{feeMap[t.key]}/min</span>
             </button>
@@ -244,12 +242,12 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
 
       {/* Error / unavailable */}
       {step === 'error' && (
-        <div className="mx-5 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-xs text-red-400">
+        <div className="mx-5 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-sm text-xs text-red-400">
           {errMsg}
         </div>
       )}
       {step === 'unavailable' && (
-        <div className="mx-5 mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-sm text-amber-300">
+        <div className="mx-5 mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-sm text-sm text-amber-300">
           <p className="font-semibold mb-1">Lawyer is currently offline</p>
           <p className="text-xs text-amber-400/70">Check back later or contact us at contact@legalxonline.com to schedule.</p>
         </div>
@@ -261,7 +259,7 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
           id="book-consult-btn"
           onClick={handleConsult}
           disabled={step === 'loading'}
-          className="w-full py-3.5 rounded-xl bg-[#C9A227] hover:bg-[#B08A1E] disabled:opacity-50 disabled:cursor-wait
+          className="w-full py-3.5 rounded-sm bg-[#C9A227] hover:bg-[#B08A1E] disabled:opacity-50 disabled:cursor-wait
             text-black font-bold text-sm transition-colors flex items-center justify-center gap-2"
         >
           {step === 'loading' ? (
@@ -271,14 +269,14 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
             </>
           ) : (
             <>
-              {CONSULT_TYPES.find((t) => t.key === type)?.icon} Start {CONSULT_TYPES.find((t) => t.key === type)?.label}
+              Start {CONSULT_TYPES.find((t) => t.key === type)?.label}
               {TEST_MODE && ' (Test)'}
             </>
           )}
         </button>
 
         <p className="text-center text-[11px] text-slate-600 mt-3">
-          🔒 Funds held by Razorpay · Only charged for time used
+          Funds held by Razorpay · Only charged for time used
         </p>
       </div>
     </div>

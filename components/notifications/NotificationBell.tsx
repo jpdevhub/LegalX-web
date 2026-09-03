@@ -18,14 +18,27 @@ import {
  * relays each row to the one account that owns it.
  */
 
-const TYPE_ICONS: Record<string, string> = {
-  consultation: '💬',
-  payment: '💳',
-  document: '📄',
-  verification: '✅',
-  wallet: '🪙',
-  dispute: '⚠️',
-  info: '🔔',
+/**
+ * Line icons per notification type. Emoji were being used here; they render
+ * differently on every platform and cannot take the row's colour.
+ */
+const TYPE_PATHS: Record<string, string> = {
+  consultation: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z',
+  payment:      'M2 8h20M2 12h20M4 5h16a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V7a2 2 0 012-2z',
+  document:     'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6M9 13h6M9 17h6',
+  verification: 'M20 6L9 17l-5-5',
+  wallet:       'M20 12V8H6a2 2 0 010-4h12v4M4 6v12a2 2 0 002 2h14v-4M18 12a2 2 0 000 4h4v-4z',
+  dispute:      'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',
+  info:         'M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0',
+}
+
+function TypeIcon({ type, className = 'w-4 h-4' }: { type: string; className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden suppressHydrationWarning>
+      <path d={TYPE_PATHS[type] ?? TYPE_PATHS.info} />
+    </svg>
+  )
 }
 
 function timeAgo(iso: string): string {
@@ -220,9 +233,7 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
                     {items.map(n => {
                       const body = (
                         <>
-                          <span className="text-base leading-none mt-0.5 shrink-0" aria-hidden>
-                            {TYPE_ICONS[n.type] ?? TYPE_ICONS.info}
-                          </span>
+                          <TypeIcon type={n.type} className="w-4 h-4 mt-0.5 shrink-0 text-[#C9A227]" />
                           <span className="min-w-0 flex-1">
                             <span className="flex items-start gap-2">
                               <span className={`text-sm flex-1 ${n.is_read ? 'text-slate-400' : 'text-white font-semibold'}`}>
@@ -275,7 +286,7 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
             className="fixed bottom-5 right-5 z-[120] w-[min(340px,calc(100vw-40px))] rounded-xl bg-[#111318] border border-[#C9A227]/30 shadow-2xl p-4"
           >
             <div className="flex gap-3">
-              <span className="text-lg leading-none" aria-hidden>{TYPE_ICONS[toast.type] ?? TYPE_ICONS.info}</span>
+              <TypeIcon type={toast.type} className="w-4.5 h-4.5 mt-0.5 shrink-0 text-[#C9A227]" />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-white">{toast.title}</p>
                 <p className="text-xs text-slate-400 mt-0.5">{toast.message}</p>

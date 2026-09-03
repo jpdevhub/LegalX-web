@@ -16,6 +16,22 @@ export function InstallPWA() {
       return
     }
 
+    /**
+     * Desktop Chrome fires beforeinstallprompt too, which is why this banner
+     * was appearing on laptops. "Add to home screen" only means something on a
+     * handset, so the prompt is limited to a small, touch-primary screen — and
+     * skipped entirely once the app is already running installed.
+     */
+    const isPhone =
+      window.matchMedia('(max-width: 767px)').matches &&
+      window.matchMedia('(pointer: coarse)').matches
+    const alreadyInstalled =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      // iOS Safari reports installed state here rather than via display-mode.
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true
+
+    if (!isPhone || alreadyInstalled) return
+
     const handler = (e: any) => {
       e.preventDefault()
       setSupportsPWA(true)

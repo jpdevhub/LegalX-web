@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { DarkModeProvider } from '@/components/providers/DarkModeProvider'
 import { CsrfProvider } from '@/components/providers/CsrfProvider'
+import { WhatsAppButton } from '@/components/ui/WhatsAppButton'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -31,33 +32,53 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
+/**
+ * Site metadata.
+ *
+ * metadataBase pointed at legalx.in — a domain this site is not served from —
+ * so every canonical, Open Graph and Twitter URL Next generated resolved to the
+ * wrong host. Search engines had nothing authoritative tying the pages to
+ * legalxonline.com, which is why the indexed result carried a stale
+ * description rather than this one.
+ */
+const SITE_URL = 'https://www.legalxonline.com'
+
 export const metadata: Metadata = {
   title: {
-    default: 'LegalX — Legal Services Simplified',
-    template: '%s | LegalX',
+    default: 'LegalXOnline — Talk to a Verified Lawyer Online in India',
+    template: '%s | LegalXOnline',
   },
   description:
-    "India's trusted legal tech platform. From document generation to expert counsel — professional legal protection for individuals and businesses.",
-  keywords: ['legal services', 'legal documents', 'NDA', 'trademark registration', 'company registration', 'legal consultation', 'India'],
-  authors: [{ name: 'LegalX Technologies Pvt. Ltd.' }],
-  metadataBase: new URL('https://legalx.in'),
+    'Consult verified Indian advocates by chat, voice or video — billed per minute. Draft legal documents, send notices, and follow daily legal updates in the Knowledge Center.',
+  keywords: ['talk to a lawyer', 'online legal consultation', 'legal documents India', 'legal notice', 'rent agreement', 'advocate consultation', 'LegalXOnline'],
+  authors: [{ name: 'LegalXOnline' }],
+  metadataBase: new URL(SITE_URL),
+  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     locale: 'en_IN',
-    url: 'https://legalx.in',
-    siteName: 'LegalX',
-    title: 'LegalX — Legal Services Simplified',
+    url: SITE_URL,
+    siteName: 'LegalXOnline',
+    title: 'LegalXOnline — Talk to a Verified Lawyer Online in India',
     description:
-      'Navigate the complexities of law with precision. Instant document generation, expert attorneys, and business law — all in one platform.',
+      'Consult verified Indian advocates by chat, voice or video, billed per minute. Legal documents, notices and daily legal updates.',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LegalX — Legal Services Simplified',
-    description: "India's trusted legal tech platform.",
+    title: 'LegalXOnline — Talk to a Verified Lawyer Online in India',
+    description: 'Consult verified Indian advocates by chat, voice or video — billed per minute.',
   },
-  icons: {
-    icon: '/favicon.ico',
+  // Explicit rather than inherited: the previous indexed snippet came from a
+  // parked page, so the crawler needs unambiguous permission for this one.
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
   },
+  // No explicit icons entry: app/icon.tsx and app/apple-icon.tsx are picked up
+  // automatically. The previous '/favicon.ico' pointed at the create-next-app
+  // default — the Vercel triangle — which is what browsers and Google were
+  // showing as this site's mark.
   manifest: '/manifest.json',
 }
 
@@ -70,13 +91,15 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
       <head>
         {/*
-          THEME INIT — runs synchronously before any paint.
-          Reads localStorage and applies dark class to <html> immediately,
-          eliminating the white flash (FOUC) when dark mode is active.
+          THEME INIT — runs synchronously before any paint, so there is no white
+          flash before React mounts. The app is dark-surfaced only: this used to
+          read a stored preference, which meant a visitor who had once chosen
+          light got a header and a handful of sections in light over pages that
+          are painted dark regardless.
         */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('legalx-theme');if(t==='dark'||(t===null&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.classList.add('dark');}else{document.documentElement.classList.remove('dark');}}catch(e){}})();`,
+            __html: `document.documentElement.classList.add('dark');`,
           }}
         />
         {/*
@@ -90,9 +113,33 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.variable} font-sans antialiased`} suppressHydrationWarning>
+        {/*
+          Organization identity for search engines. Without it the crawler had
+          to infer who this site belongs to, and was still carrying details
+          from the domain's parked page.
+        */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'LegalXOnline',
+              url: SITE_URL,
+              logo: `${SITE_URL}/icon.svg`,
+              description:
+                'Consult verified Indian advocates by chat, voice or video, billed per minute. Legal documents, notices and daily legal updates.',
+              email: 'contact@legalxonline.com',
+              areaServed: 'IN',
+              sameAs: ['https://youtube.com/@legalxonline'],
+            }),
+          }}
+        />
         <CsrfProvider>
           <DarkModeProvider>
             {children}
+            {/* Sitewide, so support is one tap away from any page. */}
+            <WhatsAppButton />
           </DarkModeProvider>
         </CsrfProvider>
       </body>
