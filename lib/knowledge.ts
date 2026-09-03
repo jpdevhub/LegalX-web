@@ -74,3 +74,87 @@ export function formatDate(iso: string | null): string {
   if (!iso) return ''
   return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
 }
+
+// ── Know Your Rights ──────────────────────────────────────────────────────────
+// A separate taxonomy from the daily feed. These cards come from judgments and
+// NCRB source documents and are grouped by the area of law they explain, not by
+// the situation the reader is in.
+
+export const RIGHTS_CATEGORY_LABELS: Record<string, string> = {
+  criminal:      'Criminal Law',
+  pocso:         'Child Protection',
+  traffic:       'Traffic & Motor',
+  cheque_ni_act: 'Cheque Bounce',
+  dowry:         'Dowry & Domestic',
+  consumer:      'Consumer',
+  cyber:         'Cyber & Online',
+}
+
+export const RIGHTS_CATEGORY_TONES: Record<string, { pill: string; accent: string }> = {
+  criminal:      { pill: 'bg-rose-500/15 text-rose-300 border-rose-500/25',       accent: 'bg-rose-400' },
+  pocso:         { pill: 'bg-amber-500/15 text-amber-300 border-amber-500/25',    accent: 'bg-amber-400' },
+  traffic:       { pill: 'bg-blue-500/15 text-blue-300 border-blue-500/25',       accent: 'bg-blue-400' },
+  cheque_ni_act: { pill: 'bg-[#C9A227]/20 text-[#D4AF37] border-[#C9A227]/30',    accent: 'bg-[#C9A227]' },
+  dowry:         { pill: 'bg-pink-500/15 text-pink-300 border-pink-500/25',       accent: 'bg-pink-400' },
+  consumer:      { pill: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/25', accent: 'bg-emerald-400' },
+  cyber:         { pill: 'bg-violet-500/15 text-violet-300 border-violet-500/25', accent: 'bg-violet-400' },
+}
+
+export function rightsLabelFor(category: string): string {
+  return RIGHTS_CATEGORY_LABELS[category] ?? category.replace(/_/g, ' ')
+}
+
+export function rightsToneFor(category: string) {
+  return RIGHTS_CATEGORY_TONES[category]
+    ?? { pill: 'bg-white/10 text-slate-300 border-white/15', accent: 'bg-white/30' }
+}
+
+/** The card's cta_type decides where the reader is sent next. */
+export function rightsCtaFor(ctaType: string | null) {
+  if (ctaType === 'document') {
+    return { label: 'Get this document drafted', href: '/documents' }
+  }
+  return { label: 'Talk to a lawyer about this', href: '/talk-to-lawyer' }
+}
+
+/**
+ * Reviewer attribution, or nothing.
+ *
+ * The import carried "dev-unauthenticated" as a placeholder. Printing that
+ * under a criminal-law explainer would be worse than printing nothing, so
+ * anything that is not a plausible human name is suppressed and the card falls
+ * back to the editorial byline.
+ */
+const PLACEHOLDER_REVIEWERS = /^(dev-unauthenticated|system|unknown|null|undefined|admin)$/i
+
+export function displayReviewer(reviewedBy: string | null | undefined): string | null {
+  const name = (reviewedBy ?? '').trim()
+  if (!name || PLACEHOLDER_REVIEWERS.test(name)) return null
+  // A bare UUID is an account id that leaked into the field, not a person.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(name)) return null
+  return name
+}
+
+/** indiankanoon.org requires visible attribution on anything derived from it. */
+export function requiresIKanoonAttribution(source: string | null | undefined): boolean {
+  return (source ?? '').toLowerCase().includes('kanoon')
+}
+
+/** Meta description: the direct answer, cut to a length Google will show. */
+export function metaDescriptionFrom(directAnswer: string | null, fallback: string): string {
+  const text = (directAnswer ?? '').trim() || fallback
+  if (text.length <= 155) return text
+  // Cut on a word boundary so the description does not end mid-word.
+  const cut = text.slice(0, 155)
+  const lastSpace = cut.lastIndexOf(' ')
+  return `${(lastSpace > 120 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`
+}
+
+export const KNOWLEDGE_SECTIONS = [
+  { key: 'legal-updates',    label: 'Legal Updates',    href: '/knowledge-center',                    blurb: 'Daily regulator and government updates' },
+  { key: 'know-your-rights', label: 'Know Your Rights', href: '/knowledge-center/know-your-rights',   blurb: 'Plain-language answers on Acts and rights' },
+  { key: 'judgments',        label: 'Judgments',        href: '/knowledge-center/judgments',          blurb: 'Court decisions explained' },
+] as const
+
+export const LEGAL_DISCLAIMER =
+  'This is general legal information, not legal advice. Laws change and every case turns on its own facts — speak to a lawyer about your situation.'
