@@ -12,6 +12,30 @@ const SITE = 'https://www.legalxonline.com'
  */
 export const revalidate = 3600
 
+/**
+ * Retry the content fetches before giving up.
+ *
+ * The frontend and the backend deploy independently, and the backend is on a
+ * free tier that cold-starts. A Vercel build can therefore run while Render is
+ * still rolling out, and a single failed fetch here produced a sitemap missing
+ * every card URL — cached for the next hour, which is the whole point of the
+ * file gone. Three attempts with a widening pause covers both a cold start and
+ * a deploy that is a few seconds behind.
+ */
+async function withRetry<T>(fn: () => Promise<T>, label: string, attempts = 3): Promise<T | null> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn()
+    } catch {
+      if (i < attempts - 1) {
+        await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1)))
+      }
+    }
+  }
+  console.warn(`[sitemap] ${label} unavailable after ${attempts} attempts — omitted`)
+  return null
+}
+
 const STATIC_ROUTES: [string, MetadataRoute.Sitemap[number]['changeFrequency'], number][] = [
   ['',                                    'weekly',  1.0],
   ['/knowledge-center',                   'daily',   0.9],
@@ -38,35 +62,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Daily legal updates. A backend hiccup must not break the sitemap — the
   // static routes still get served.
-  try {
-    const { shorts } = await apiGetShortsArchive({ limit: 50, page: 1 })
-    for (const s of shorts) {
-      if (!s.slug) continue
-      entries.push({
-        url: `${SITE}/knowledge-center/${s.slug}`,
-        lastModified: s.published_at ? new Date(s.published_at) : now,
-        changeFrequency: 'monthly',
-        priority: 0.7,
-      })
-    }
-  } catch { /* static routes only */ }
+  const archive = await withRetry(() => apiGetShortsArchive({ limit: 50, page: 1 }), 'legal updates')
+  for (const s of archive?.shorts ?? []) {
+    if (!s.slug) continue
+    entries.push({
+      url: `${SITE}/knowledge-center/${s.slug}`,
+      lastModified: s.published_at ? new Date(s.published_at) : now,
+      changeFrequency: 'monthly',
+      priority: 0.7,
+    })
+  }
 
   // Know Your Rights. Only published cards are returned by the endpoint, so an
   // unreviewed explainer can never be advertised to a crawler. lastmod is the
   // review date: a re-review is a real change to a legal page even when the
   // wording is untouched.
-  try {
-    const cards = await apiGetKnowledgeSlugs()
-    for (const c of cards) {
-      const stamp = c.last_reviewed_at ?? c.published_at
-      entries.push({
-        url: `${SITE}/knowledge-center/know-your-rights/${c.slug}`,
-        lastModified: stamp ? new Date(stamp) : now,
-        changeFrequency: 'monthly',
-        priority: 0.8,
-      })
-    }
-  } catch { /* section page is still listed above */ }
+  const cards = await withRetry(() => apiGetKnowledgeSlugs(), 'rights explainers')
+  for (const c of cards ?? []) {
+    const stamp = c.last_reviewed_at ?? c.published_at
+    entries.push({
+      url: `${SITE}/knowledge-center/know-your-rights/${c.slug}`,
+      lastModified: stamp ? new Date(stamp) : now,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    })
+  }
 
   return entries
 }
