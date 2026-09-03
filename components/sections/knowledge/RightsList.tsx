@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { apiGetKnowledge, apiSearchKnowledge, type KnowledgeCard } from '@/lib/api'
+import { apiGetKnowledge, apiGetKnowledgeCategories, apiSearchKnowledge, type KnowledgeCard } from '@/lib/api'
 import { rightsLabelFor, rightsToneFor } from '@/lib/knowledge'
 
 /**
@@ -37,10 +37,44 @@ export function RightsList({
   const [loading, setLoading] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
 
+  const [chips, setChips] = useState(categories)
+
   const totalCount = useMemo(
-    () => categories.reduce((sum, c) => sum + c.count, 0),
-    [categories]
+    () => chips.reduce((sum, c) => sum + c.count, 0),
+    [chips]
   )
+
+  /**
+   * Re-fetch on mount, always.
+   *
+   * This page is prerendered and then served from the ISR cache. Vercel and
+   * Render deploy independently, so a frontend build can land while the backend
+   * is still rolling out — the server render then gets nothing and that empty
+   * page is cached for the whole revalidate window. Without this the section
+   * reads "0 questions answered" on production while the API is returning 183.
+   *
+   * The client fetch costs one request and makes the page self-healing rather
+   * than dependent on two deploys finishing in the right order.
+   */
+  useEffect(() => {
+    if (initialCards.length > 0) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [res, cats] = await Promise.all([
+          apiGetKnowledge({ page: 1, limit: PAGE_SIZE }),
+          apiGetKnowledgeCategories().catch(() => [] as { name: string; count: number }[]),
+        ])
+        if (cancelled) return
+        setCards(res.cards)
+        setTotal(res.total)
+        setHasMore(res.hasMore)
+        if (cats.length) setChips(cats)
+      } catch { /* keep the empty state */ }
+    })()
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const switchCategory = useCallback(async (next: string) => {
     setCategory(next)
@@ -135,7 +169,7 @@ export function RightsList({
         <div className="hidden sm:flex gap-2 overflow-x-auto no-scrollbar flex-1 -mx-1 px-1">
           <Chip label="All" count={totalCount} active={category === 'all' && !searching}
                 onClick={() => switchCategory('all')} />
-          {categories.map(c => (
+          {chips.map(c => (
             <Chip key={c.name} label={rightsLabelFor(c.name)} count={c.count}
                   active={category === c.name && !searching}
                   onClick={() => switchCategory(c.name)} />
@@ -161,7 +195,7 @@ export function RightsList({
         <div className="sm:hidden mb-5 flex flex-wrap gap-2 p-3 rounded-sm bg-[#0E1220] border border-white/10">
           <Chip label="All" count={totalCount} active={category === 'all' && !searching}
                 onClick={() => { switchCategory('all'); setFiltersOpen(false) }} />
-          {categories.map(c => (
+          {chips.map(c => (
             <Chip key={c.name} label={rightsLabelFor(c.name)} count={c.count}
                   active={category === c.name && !searching}
                   onClick={() => { switchCategory(c.name); setFiltersOpen(false) }} />
