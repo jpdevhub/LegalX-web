@@ -29,119 +29,90 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
-// ── Skeleton card ─────────────────────────────────────────────────────────────
+// ── Skeleton card — matches Document card skeleton ────────────────────────────
 function SkeletonCard() {
   return (
-    <div className="bg-[#0E1220] border border-white/8 rounded-sm p-5 animate-pulse">
-      <div className="flex items-start gap-4 mb-4">
-        <div className="w-14 h-14 rounded-sm bg-white/8 flex-shrink-0" />
+    <div className="bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-6 animate-pulse">
+      <div className="flex items-center justify-between mb-5">
+        <div className="h-3 bg-white/8 rounded w-1/3" />
+        <div className="h-3 bg-white/8 rounded w-14" />
+      </div>
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-11 h-11 rounded-md bg-white/8 flex-shrink-0" />
         <div className="flex-1 space-y-2">
           <div className="h-4 bg-white/8 rounded w-3/4" />
           <div className="h-3 bg-white/5 rounded w-1/2" />
-          <div className="h-3 bg-white/5 rounded w-1/3" />
         </div>
       </div>
-      <div className="h-px bg-white/5 mb-4" />
-      <div className="grid grid-cols-3 gap-2">
-        {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-white/5 rounded-lg" />)}
+      <div className="h-3 bg-white/5 rounded w-full mb-5" />
+      <div className="pt-4 border-t border-hairline dark:border-hairline-dark flex justify-between">
+        <div className="h-3 bg-white/5 rounded w-20" />
+        <div className="h-3 bg-white/8 rounded w-24" />
       </div>
     </div>
   )
 }
 
-// ── Lawyer Card ───────────────────────────────────────────────────────────────
+// ── Lawyer Card — matches the Document service card style ─────────────────────
 function LawyerCard({ lawyer }: { lawyer: ApiLawyer }) {
   return (
     <Link
       href={`/talk-to-lawyer/${lawyer.slug}`}
-      className="group relative flex flex-col bg-[#0E1220] border border-white/8 rounded-sm overflow-hidden
-        hover:border-[#C9A227]/40 hover:shadow-[0_0_40px_rgba(201,162,39,0.08)] transition-all duration-300"
+      className="group flex flex-col h-full bg-white dark:bg-surface-dark border border-hairline dark:border-hairline-dark rounded-md p-6 hover:border-primary/40 transition-colors duration-150"
+      aria-label={`${lawyer.name} — ${lawyer.primarySpec}`}
     >
-      {/* Availability. A steady dot: this is status, and the pulse animation
-          made every card compete for attention. */}
-      {lawyer.online && (
-        <span className="absolute top-4 right-4 flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-          <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Online</span>
+      {/* Tag + status row */}
+      <div className="flex items-center justify-between mb-5">
+        <span className="text-[11px] font-semibold text-muted uppercase tracking-wide">
+          {lawyer.primarySpec}
         </span>
-      )}
-
-      <div className="p-5">
-        {/* Header */}
-        <div className="flex items-start gap-4 mb-4">
-          {/* Avatar */}
-          <div className="relative flex-shrink-0">
-            <div
-              className="w-14 h-14 rounded-sm flex items-center justify-center text-white font-bold text-lg shadow-lg"
-              style={{ backgroundColor: lawyer.avatarBg }}
-            >
-              {lawyer.initials}
-            </div>
-            {!lawyer.online && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0E1220] bg-slate-600" />
-            )}
-          </div>
-
-          {/* Name + spec */}
-          <div className="flex-1 min-w-0 pr-16">
-            <h2 className="text-white font-semibold text-sm leading-snug group-hover:text-[#C9A227] transition-colors mb-0.5">
-              {lawyer.name}
-            </h2>
-            {lawyer.verified && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-1.5 py-0.5 rounded-full mb-1">
-                <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                </svg>
-                Verified
-              </span>
-            )}
-            <p className="text-[#C9A227] text-xs font-medium">{lawyer.primarySpec}</p>
-          </div>
-        </div>
-
-        {/* Rating + meta */}
-        <div className="flex items-center gap-2 mb-3">
-          <Stars rating={lawyer.rating} />
-          <span className="text-white text-xs font-semibold">{lawyer.rating}</span>
-          <span className="text-slate-500 text-xs">({lawyer.reviewCount})</span>
-          <span className="text-slate-600 text-xs">·</span>
-          <span className="text-slate-500 text-xs">{lawyer.experience}y exp</span>
-        </div>
-
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1.5 mb-4">
-          {lawyer.specializations.slice(0, 3).map((s) => (
-            <span key={s} className="text-[10px] text-slate-400 bg-white/5 border border-white/8 px-2 py-0.5 rounded-full">
-              {s}
-            </span>
-          ))}
-        </div>
-
-        {/* Location */}
-        <p className="text-xs text-slate-500 mb-4 flex items-center gap-1">
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" strokeLinecap="round" strokeLinejoin="round" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          {lawyer.location} · {lawyer.languages.join(', ')}
-        </p>
+        {lawyer.online ? (
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Online
+          </span>
+        ) : (
+          <span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+            Offline
+          </span>
+        )}
       </div>
 
-      {/* Fee grid */}
-      <div className="grid grid-cols-3 gap-px bg-white/5 border-t border-white/8 mt-auto">
-        {([
-          { label: 'Chat', fee: lawyer.fees.chat, channel: 'chat' },
-          { label: 'Voice', fee: lawyer.fees.voice, channel: 'voice' },
-          { label: 'Video', fee: lawyer.fees.video, channel: 'video' },
-        ] as const).map((opt) => (
-          <div key={opt.label} className="bg-[#0E1220] px-3 py-3 text-center group-hover:bg-white/[0.02] transition-colors">
-            <ConsultIcon channel={opt.channel} className="w-4 h-4 mx-auto mb-1.5 text-slate-500" />
-            <div className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">{opt.label}</div>
-            <div className="text-sm font-bold text-white mt-0.5 tabular-nums">
-              ₹{opt.fee}<span className="text-[10px] text-slate-500 font-normal">/min</span>
-            </div>
+      {/* Name + avatar row */}
+      <div className="flex items-center gap-3 mb-3">
+        <div
+          className="w-11 h-11 rounded-md flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+          style={{ backgroundColor: lawyer.avatarBg }}
+        >
+          {lawyer.initials}
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-body-md font-semibold text-ink dark:text-white group-hover:text-primary transition-colors duration-150 truncate">
+            {lawyer.name}
+          </h2>
+          <div className="flex items-center gap-2 mt-0.5">
+            <Stars rating={lawyer.rating} />
+            <span className="text-body-sm font-semibold text-ink dark:text-white">{lawyer.rating}</span>
+            <span className="text-body-sm text-muted">({lawyer.reviewCount})</span>
           </div>
-        ))}
+        </div>
+      </div>
+
+      {/* Description line */}
+      <p className="text-body-sm text-body-text dark:text-slate-400 leading-snug mb-5 flex-1">
+        {lawyer.experience} years experience · {lawyer.location} · {lawyer.languages.join(', ')}
+      </p>
+
+      {/* Fee footer — like document card footer */}
+      <div className="flex items-center justify-between pt-4 border-t border-hairline dark:border-hairline-dark mt-auto">
+        <span className="text-[11px] text-muted tabular-nums">
+          From ₹{Math.min(lawyer.fees.chat, lawyer.fees.voice, lawyer.fees.video)}/min
+        </span>
+        <span className="flex items-center gap-1 text-body-sm font-semibold text-primary">
+          Consult now
+          <span aria-hidden="true">→</span>
+        </span>
       </div>
     </Link>
   )
