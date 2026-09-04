@@ -4,7 +4,7 @@ import { DOCUMENTS } from '@/lib/documents'
 import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
 
 export const metadata: Metadata = {
-  title: 'Legal Services — LegalX',
+  title: 'Legal Services',
   description:
     'GST Registration, Trademark, Udyam, DPIIT Recognition, Legal Notice, Rent Agreement, Affidavit — handled online by qualified professionals.',
 }
