@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | LegalX Online',
+  title: 'Privacy Policy',
   description: 'How LegalX Online collects, uses, and protects your personal data.',
 }
 
