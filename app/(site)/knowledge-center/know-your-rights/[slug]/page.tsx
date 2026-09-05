@@ -10,6 +10,10 @@ import {
   displayReviewer,
   requiresIKanoonAttribution,
   metaDescriptionFrom,
+  statuteLabelFrom,
+  cardTitleTag,
+  plainText,
+  jsonLd,
   formatDate,
   LEGAL_DISCLAIMER,
 } from '@/lib/knowledge'
@@ -49,8 +53,20 @@ export async function generateMetadata(
   // description — no separate summary needed, and none should be invented.
   const description = metaDescriptionFrom(card.direct_answer, card.title)
 
+  // "BNS Section 304 — Can police arrest without a warrant?" rather than the
+  // bare question. Section-number searches are where this content is findable
+  // and where almost nobody is competing.
+  const label = statuteLabelFrom(card.case_reference)
+  if (!label) {
+    // Fixed on the data side, not here — a half-parsed label is worse than
+    // none. Surfaced in the build/server log with enough to act on.
+    console.warn(
+      `[rights] no statute label — id=${card.id} slug=${card.slug} case_reference=${JSON.stringify(card.case_reference ?? null)}`
+    )
+  }
+
   return {
-    title: card.title,
+    title: cardTitleTag(card.title, label),
     description,
     alternates: { canonical: `/knowledge-center/know-your-rights/${slug}` },
     openGraph: {
@@ -74,6 +90,8 @@ export default async function RightsCardPage({ params }: { params: Promise<{ slu
   const reviewer = displayReviewer(card.reviewed_by)
   const showIKanoon = requiresIKanoonAttribution(card.source)
   const reviewedOn = card.last_reviewed_at ?? card.published_at
+  const statuteLabel = statuteLabelFrom(card.case_reference)
+  const canonical = `${SITE}/knowledge-center/know-your-rights/${card.slug}`
 
   /**
    * FAQPage markup.
@@ -92,7 +110,12 @@ export default async function RightsCardPage({ params }: { params: Promise<{ slu
         name: card.title,
         acceptedAnswer: {
           '@type': 'Answer',
-          text: card.direct_answer ?? card.explanation ?? card.title,
+          // The short answer plus the detail. The pair is what an answer
+          // engine quotes; the direct answer alone reads as a fragment when
+          // lifted out of the page.
+          text:
+            plainText([card.direct_answer, card.explanation].filter(Boolean).join(' ')) ||
+            card.title,
         },
       },
     ],
@@ -109,6 +132,44 @@ export default async function RightsCardPage({ params }: { params: Promise<{ slu
   if (card.published_at) faqSchema.datePublished = card.published_at
   if (card.source_url) faqSchema.isBasedOn = card.source_url
 
+  /**
+   * Article markup, alongside the FAQPage above.
+   *
+   * Google restricted FAQ rich results in 2023 to a narrow set of sites, so
+   * the visible enhancement may never appear. Article is what carries the
+   * authorship, review date and citation that AI answer engines read when
+   * deciding whether to attribute an answer to this page — which is the
+   * actual goal here, not the snippet.
+   */
+  const articleSchema: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Article',
+    headline: card.title,
+    description: metaDescriptionFrom(card.direct_answer, card.title),
+    author: { '@type': 'Organization', name: 'LegalXOnline', url: SITE },
+    publisher: { '@type': 'Organization', name: 'LegalXOnline', url: SITE },
+    inLanguage: 'en-IN',
+    mainEntityOfPage: { '@type': 'WebPage', '@id': canonical },
+  }
+  if (card.published_at) articleSchema.datePublished = card.published_at
+  if (reviewedOn) articleSchema.dateModified = reviewedOn
+  // reviewedBy is deliberately NOT set here. schema.org defines it on WebPage,
+  // not on Article, and validator.schema.org reports it as an unknown field on
+  // an Article node. The reviewer is already published on the FAQPage node
+  // above — FAQPage is a WebPage subtype, so it carries the property validly —
+  // which means the review signal reaches a parser either way, without the
+  // warning.
+  if (card.case_reference) articleSchema.citation = card.case_reference
+  if (card.source_url) articleSchema.isBasedOn = card.source_url
+  // The statutory provision the card explains, named as its own entity so the
+  // section number is machine-readable rather than only present in the title.
+  if (statuteLabel) articleSchema.about = { '@type': 'Legislation', name: card.case_reference }
+  if (card.explanation || card.direct_answer) {
+    articleSchema.articleBody = plainText(
+      [card.direct_answer, card.explanation].filter(Boolean).join(' ')
+    )
+  }
+
   const breadcrumbSchema = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
@@ -124,9 +185,11 @@ export default async function RightsCardPage({ params }: { params: Promise<{ slu
       <SectionNav active="know-your-rights" />
 
       <script type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
+              dangerouslySetInnerHTML={{ __html: jsonLd(faqSchema) }} />
       <script type="application/ld+json"
-              dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+              dangerouslySetInnerHTML={{ __html: jsonLd(articleSchema) }} />
+      <script type="application/ld+json"
+              dangerouslySetInnerHTML={{ __html: jsonLd(breadcrumbSchema) }} />
 
       <article className="max-w-[720px] mx-auto px-5 sm:px-6 py-8">
         <nav aria-label="Breadcrumb" className="mb-6">
@@ -152,6 +215,15 @@ export default async function RightsCardPage({ params }: { params: Promise<{ slu
             </span>
           )}
         </div>
+
+        {/* The provision, as a kicker. The H1 stays the plain question —
+            that is what a human reads — while this gives the page a visible
+            match for "BNS Section 304" and the like. */}
+        {statuteLabel && (
+          <p className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#D4AF37] mb-2">
+            {statuteLabel}
+          </p>
+        )}
 
         <h1 className="text-[26px] sm:text-[32px] font-bold text-white leading-[1.2] tracking-tight">
           {card.title}
@@ -210,10 +282,14 @@ export default async function RightsCardPage({ params }: { params: Promise<{ slu
             </a>
           )}
 
-          {/* Attribution required by indiankanoon.org's terms — not optional. */}
+          {/*
+            Attribution required by indiankanoon.org's terms — not optional.
+            Points at this card's own source document, falling back to the site
+            root only when the card carries no source_url.
+          */}
           {showIKanoon && (
             <a
-              href="https://indiankanoon.org"
+              href={card.source_url ?? 'https://indiankanoon.org'}
               target="_blank"
               rel="noopener noreferrer"
               className="text-slate-500 hover:text-slate-300 transition-colors"

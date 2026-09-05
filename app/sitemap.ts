@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { apiGetShortsArchive, apiGetKnowledgeSlugs } from '@/lib/api'
+import { isGone } from '@/lib/gonePaths'
 
 const SITE = 'https://www.legalxonline.com'
 
@@ -62,15 +63,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Daily legal updates. A backend hiccup must not break the sitemap — the
   // static routes still get served.
-  const archive = await withRetry(() => apiGetShortsArchive({ limit: 50, page: 1 }), 'legal updates')
-  for (const s of archive?.shorts ?? []) {
-    if (!s.slug) continue
-    entries.push({
-      url: `${SITE}/knowledge-center/${s.slug}`,
-      lastModified: s.published_at ? new Date(s.published_at) : now,
-      changeFrequency: 'monthly',
-      priority: 0.7,
-    })
+  //
+  // Paged, because the archive endpoint caps a single request at 50 rows. A
+  // lone page-1 fetch silently dropped every card past the fiftieth once the
+  // feed outgrew that, which is invisible from the file itself — the sitemap
+  // still looked healthy and simply stopped advertising the newest content.
+  const MAX_FEED_PAGES = 40 // 2,000 URLs; a guard against an unbounded loop
+  for (let page = 1; page <= MAX_FEED_PAGES; page++) {
+    const archive = await withRetry(
+      () => apiGetShortsArchive({ limit: 50, page }),
+      `legal updates (page ${page})`
+    )
+    if (!archive) break
+
+    for (const s of archive.shorts ?? []) {
+      if (!s.slug) continue
+      // A withdrawn card can still be published in the database until the
+      // data-side unpublish runs. Submitting a URL the proxy then answers with
+      // 410 reads to Search Console as a broken site rather than a deliberate
+      // removal, so the sitemap drops it here regardless.
+      if (isGone(`/knowledge-center/${s.slug}`)) continue
+      entries.push({
+        url: `${SITE}/knowledge-center/${s.slug}`,
+        lastModified: s.published_at ? new Date(s.published_at) : now,
+        changeFrequency: 'monthly',
+        priority: 0.7,
+      })
+    }
+
+    if (page * 50 >= (archive.total ?? 0)) break
   }
 
   // Know Your Rights. Only published cards are returned by the endpoint, so an

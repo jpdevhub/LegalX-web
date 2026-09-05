@@ -1,6 +1,16 @@
 import { ImageResponse } from 'next/og'
 
-export const size      = { width: 32, height: 32 }
+/**
+ * 192px, not 32.
+ *
+ * Google wants a favicon that is a multiple of 48px and downscales it itself;
+ * a 32px source is below that floor and gets passed over. The .ico beside this
+ * file still carries 16/32/48 for browser tabs and legacy clients — this is the
+ * large raster that search results and Android home screens pick up.
+ */
+const SIZE = 192
+
+export const size      = { width: SIZE, height: SIZE }
 export const contentType = 'image/png'
 
 export default function Icon() {
@@ -8,9 +18,9 @@ export default function Icon() {
     (
       <div
         style={{
-          width: 32,
-          height: 32,
-          borderRadius: 7,
+          width: SIZE,
+          height: SIZE,
+          borderRadius: SIZE * 0.22,
           background: '#C9A227',
           display: 'flex',
           alignItems: 'center',
@@ -18,8 +28,8 @@ export default function Icon() {
         }}
       >
         <svg
-          width={22}
-          height={18}
+          width={SIZE * 0.69}
+          height={SIZE * 0.56}
           viewBox="0 0 160 130"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"

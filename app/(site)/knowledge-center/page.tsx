@@ -15,11 +15,11 @@ import { apiGetShorts, apiGetShortCategories, type LegalShort } from '@/lib/api'
 export const revalidate = 60
 
 export const metadata: Metadata = {
-  title: 'Knowledge Center — Daily Legal Updates | LegalXOnline',
+  title: 'Knowledge Center — Daily Legal Updates',
   description:
     'Bite-sized summaries of Indian legal and government updates, curated daily. Every card is grounded in an official source and reviewed by our team before publication.',
   openGraph: {
-    title: 'LegalX Knowledge Center',
+    title: 'LegalXOnline Knowledge Center',
     description: 'Two-minute summaries of the legal updates that matter, every morning.',
     type: 'website',
   },

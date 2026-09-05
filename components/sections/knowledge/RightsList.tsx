@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { apiGetKnowledge, apiGetKnowledgeCategories, apiSearchKnowledge, type KnowledgeCard } from '@/lib/api'
-import { rightsLabelFor, rightsToneFor } from '@/lib/knowledge'
+import { rightsLabelFor, rightsToneFor, requiresIKanoonAttribution, statuteLabelFrom } from '@/lib/knowledge'
 
 /**
  * Know Your Rights — a scannable list, not a card feed.
@@ -261,9 +261,11 @@ function Chip({
 
 function RightsRow({ card }: { card: KnowledgeCard }) {
   const tone = rightsToneFor(card.category)
+  const statuteLabel = statuteLabelFrom(card.case_reference)
+  const showIKanoon = requiresIKanoonAttribution(card.source)
 
   return (
-    <li>
+    <li className="relative">
       <Link
         href={`/knowledge-center/know-your-rights/${card.slug}`}
         className="group relative block rounded-sm bg-[#0E1220] border border-white/8 hover:border-[#C9A227]/40 transition-colors overflow-hidden"
@@ -274,6 +276,13 @@ function RightsRow({ card }: { card: KnowledgeCard }) {
             <span className={`px-2 py-0.5 rounded-sm border text-[10px] font-bold uppercase tracking-wide ${tone.pill}`}>
               {rightsLabelFor(card.category)}
             </span>
+            {/* The short form leads, because it is what people search for.
+                The full citation still follows for anyone checking it. */}
+            {statuteLabel && (
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#D4AF37]">
+                {statuteLabel}
+              </span>
+            )}
             {card.case_reference && (
               <span className="text-[11px] text-slate-500 truncate max-w-[260px]">
                 {card.case_reference}
@@ -292,6 +301,23 @@ function RightsRow({ card }: { card: KnowledgeCard }) {
           )}
         </div>
       </Link>
+
+      {/*
+        Attribution required by indiankanoon.org's terms — a contractual
+        condition, not a nice-to-have. Kept outside the row's <Link> because a
+        nested anchor is invalid HTML and the browser would drop it, taking the
+        attribution with it.
+      */}
+      {showIKanoon && (
+        <a
+          href={card.source_url ?? 'https://indiankanoon.org'}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="absolute bottom-2 right-4 sm:right-5 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+        >
+          Powered by IKanoon
+        </a>
+      )}
     </li>
   )
 }
