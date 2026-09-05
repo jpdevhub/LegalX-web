@@ -30,7 +30,7 @@ export function HomeHero() {
             </h1>
 
             <p className="text-body-md text-body-text max-w-lg leading-relaxed">
-              LegalX makes legal services simple, affordable, and accessible for every Indian. From business registrations to expert legal consultation — handled online by qualified professionals.
+              LegalXOnline makes legal services simple, affordable, and accessible for every Indian. From business registrations to expert legal consultation — handled online by qualified professionals.
             </p>
 
             <div className="flex flex-wrap gap-3">

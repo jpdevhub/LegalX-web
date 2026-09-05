@@ -125,13 +125,28 @@ export default function RootLayout({
               '@context': 'https://schema.org',
               '@type': 'Organization',
               name: 'LegalXOnline',
+              // "LegalX" alone collides with several unrelated companies, so it
+              // is claimed here as an alias of this entity rather than left for
+              // the crawler to resolve on its own — which is how the brand ended
+              // up described from a third-party page.
+              alternateName: ['LegalX Online', 'LegalX', 'LegalXOnline Private Limited'],
               url: SITE_URL,
               logo: `${SITE_URL}/icon.svg`,
               description:
-                'Consult verified Indian advocates by chat, voice or video, billed per minute. Legal documents, notices and daily legal updates.',
+                'LegalXOnline is an Indian legal technology platform offering document drafting and lawyer consultation services.',
               email: 'contact@legalxonline.com',
               areaServed: 'IN',
+              // Only profiles confirmed to exist. A sameAs pointing at a handle
+              // that is not ours actively breaks entity resolution, so an
+              // unverified profile is left out rather than guessed at.
               sameAs: ['https://youtube.com/@legalxonline'],
+              contactPoint: {
+                '@type': 'ContactPoint',
+                email: 'contact@legalxonline.com',
+                contactType: 'customer support',
+                areaServed: 'IN',
+                availableLanguage: ['en', 'hi'],
+              },
             }),
           }}
         />

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { isGone } from '@/lib/gonePaths'
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000'
 
@@ -36,6 +37,31 @@ function matchGuard(pathname: string) {
 }
 
 /**
+ * Withdrawn pages answer 410 Gone.
+ *
+ * A 404 says "not here right now" and is re-checked for months; a 410 says
+ * "gone" and is dropped far faster. Unpublishing the card alone would only ever
+ * produce a 404, which is why this sits in front of the route rather than being
+ * left to the card page's notFound().
+ */
+function goneResponse(): NextResponse {
+  return new NextResponse(
+    '<!doctype html><meta charset="utf-8"><title>Page removed</title>' +
+    '<p>This page has been permanently removed. ' +
+    '<a href="/knowledge-center">Browse the Knowledge Center</a>.</p>',
+    {
+      status: 410,
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        // Crawlers and the CDN should not keep serving a cached 200 for it.
+        'cache-control': 'no-store',
+        'x-robots-tag': 'noindex',
+      },
+    }
+  )
+}
+
+/**
  * Booking a lawyer lives at /talk-to-lawyer/<slug>/book — the directory and
  * profile pages above it must stay public so prospects can browse before
  * signing up.
@@ -65,6 +91,10 @@ function redirectToLogin(request: NextRequest, pathname: string) {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Before anything else: withdrawn pages answer 410 whether or not the card
+  // still exists in the database.
+  if (isGone(pathname)) return goneResponse()
 
   const guard = matchGuard(pathname)
   const needsClient = isLawyerBookingPath(pathname)

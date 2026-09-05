@@ -8,7 +8,7 @@ import { apiGetShortsArchive, apiGetShortsMonths, type LegalShort } from '@/lib/
 export const revalidate = 1800
 
 export const metadata: Metadata = {
-  title: 'Archive — Knowledge Center | LegalXOnline',
+  title: 'Archive — Knowledge Center',
   description:
     'Every legal update we have published, browsable by month and category. Summaries of Indian court judgments and government notifications, grounded in official sources.',
 }

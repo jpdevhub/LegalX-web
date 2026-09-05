@@ -6,9 +6,9 @@ import { AboutTeam } from '@/components/sections/about/AboutTeam'
 import { AboutContact } from '@/components/sections/about/AboutContact'
 
 export const metadata: Metadata = {
-  title: 'About Us — LegalX',
+  title: 'About Us',
   description:
-    'LegalX was founded to democratize legal intelligence for modern India. Learn about our mission, values, and the minds behind the platform.',
+    'LegalXOnline was founded to democratize legal intelligence for modern India. Learn about our mission, values, and the minds behind the platform.',
 }
 
 export default function AboutPage() {

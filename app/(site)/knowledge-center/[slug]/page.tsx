@@ -32,10 +32,10 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { slug } = await params
   const short = await loadShort(slug)
-  if (!short) return { title: 'Not found | LegalXOnline' }
+  if (!short) return { title: 'Not found' }
 
   return {
-    title: `${short.title} | LegalX Knowledge Center`,
+    title: `${short.title} — Knowledge Center`,
     description: short.summary.slice(0, 160),
     alternates: { canonical: `/knowledge-center/${slug}` },
     openGraph: {

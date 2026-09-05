@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Awards & Achievements — LegalX',
+  title: 'Awards & Achievements',
   description:
-    'LegalX has been recognised at national competitions and startup platforms for innovation in legal technology.',
+    'LegalXOnline has been recognised at national competitions and startup platforms for innovation in legal technology.',
 }
 
 const AWARDS = [

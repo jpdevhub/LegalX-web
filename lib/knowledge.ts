@@ -140,6 +140,134 @@ export function requiresIKanoonAttribution(source: string | null | undefined): b
   return (source ?? '').toLowerCase().includes('kanoon')
 }
 
+/**
+ * A sub-section suffix counts only when it is attached to the number, and only
+ * when it is uppercase: "304B" and "498A" are provisions, but the "in" of
+ * "Section 166 in The Motor Vehicles Act" — IndianKanoon's phrasing, used by
+ * 8 of the imported references — is an English word, and a spaced "MV" is the
+ * start of the Act name. Both were being read as sub-section letters and
+ * printed as "Section 166IN MV Act".
+ *
+ * Only "Section" itself is case-insensitive; the suffix deliberately is not.
+ */
+const SECTION_PATTERN = /\b[Ss]ections?\s+(\d+[A-Z]{0,2})\b/
+
+/**
+ * Act name -> short form. Ordered: the first match wins, so anything more
+ * specific must precede a substring of itself.
+ *
+ * `prefix` acts read better in front of the section ("BNS Section 304"),
+ * which is also how people search for the new sanhitas. Everything else
+ * reads better after it ("Section 138 NI Act").
+ */
+const ACT_SHORT_FORMS: { match: RegExp; short: string; position: 'prefix' | 'suffix' }[] = [
+  { match: /bharatiya\s+nyaya\s+sanhita/i,              short: 'BNS',        position: 'prefix' },
+  { match: /bharatiya\s+nagarik\s+suraksha\s+sanhita/i, short: 'BNSS',       position: 'prefix' },
+  { match: /bharatiya\s+sakshya\s+adhiniyam/i,          short: 'BSA',        position: 'prefix' },
+  { match: /indian\s+penal\s+code/i,                    short: 'IPC',        position: 'prefix' },
+  { match: /code\s+of\s+criminal\s+procedure|criminal\s+procedure\s+code/i, short: 'CrPC', position: 'prefix' },
+  { match: /code\s+of\s+civil\s+procedure|civil\s+procedure\s+code/i,       short: 'CPC',  position: 'prefix' },
+  { match: /indian\s+evidence\s+act/i,                  short: 'Evidence Act',   position: 'suffix' },
+  { match: /negotiable\s+instruments/i,                 short: 'NI Act',         position: 'suffix' },
+  { match: /information\s+technology/i,                 short: 'IT Act',         position: 'suffix' },
+  { match: /protection\s+of\s+women\s+from\s+domestic\s+violence/i, short: 'DV Act', position: 'suffix' },
+  { match: /protection\s+of\s+children\s+from\s+sexual\s+offences|pocso/i, short: 'POCSO Act', position: 'suffix' },
+  { match: /motor\s+vehicles/i,                         short: 'MV Act',         position: 'suffix' },
+  { match: /consumer\s+protection/i,                    short: 'Consumer Protection Act', position: 'suffix' },
+  { match: /dowry\s+prohibition/i,                      short: 'Dowry Prohibition Act',   position: 'suffix' },
+  { match: /juvenile\s+justice/i,                       short: 'JJ Act',         position: 'suffix' },
+  { match: /right\s+to\s+information/i,                 short: 'RTI Act',        position: 'suffix' },
+  { match: /hindu\s+marriage/i,                         short: 'Hindu Marriage Act',      position: 'suffix' },
+  { match: /special\s+marriage/i,                       short: 'Special Marriage Act',    position: 'suffix' },
+  { match: /indian\s+contract/i,                        short: 'Contract Act',   position: 'suffix' },
+  { match: /transfer\s+of\s+property/i,                 short: 'Transfer of Property Act', position: 'suffix' },
+]
+
+/**
+ * Short statute label from a case_reference.
+ *
+ *   "Section 304, Bharatiya Nyaya Sanhita, 2023"        -> "BNS Section 304"
+ *   "Section 138, The Negotiable Instruments Act, 1881" -> "Section 138 NI Act"
+ *   "Section 65B, Information Technology Act, 2000"     -> "Section 65B IT Act"
+ *
+ * This is the highest-value string on the page. Card titles are plain
+ * questions, so someone searching "BNS Section 304" could never match one —
+ * and BNS content is still scarce because it only replaced the IPC in July
+ * 2024. 148 of the 183 published cards are BNS or BNSS sections.
+ *
+ * Returns null when the reference is missing or names no Act this recognises.
+ * The caller falls back to the bare question and logs it, rather than printing
+ * a half-parsed label under a criminal-law explainer.
+ */
+export function statuteLabelFrom(caseReference: string | null | undefined): string | null {
+  const ref = (caseReference ?? '').trim()
+  if (!ref) return null
+
+  const tidy = SECTION_PATTERN.exec(ref)?.[1]
+  if (!tidy) return null
+
+  const act = ACT_SHORT_FORMS.find(a => a.match.test(ref))
+  // A section number with no Act behind it is ambiguous — "Section 304" alone
+  // could be BNS or IPC, and guessing wrong on a criminal provision is worse
+  // than showing no label.
+  if (!act) return null
+
+  return act.position === 'prefix'
+    ? `${act.short} Section ${tidy}`
+    : `Section ${tidy} ${act.short}`
+}
+
+/**
+ * Title tag for a rights card: "<label> — <question>".
+ *
+ * The label is never truncated. It is the part that matches the search, so if
+ * something has to go it is the tail of the question. The brand suffix is
+ * appended by the metadata template in the root layout, so it is excluded
+ * from the budget here.
+ */
+const TITLE_BUDGET = 60
+
+export function cardTitleTag(title: string, label: string | null): string {
+  if (!label) return title
+
+  const prefix = `${label} — `
+  const room = TITLE_BUDGET - prefix.length
+  // No usable room for the question — the label alone still matches the
+  // search, which is the whole point of having it.
+  if (room < 12) return `${prefix}${title}`.trimEnd()
+  if (title.length <= room) return `${prefix}${title}`
+
+  const cut = title.slice(0, room)
+  const lastSpace = cut.lastIndexOf(' ')
+  const trimmed = (lastSpace > room * 0.6 ? cut.slice(0, lastSpace) : cut).trimEnd()
+  return `${prefix}${trimmed}…`
+}
+
+/**
+ * Strips markup and collapses whitespace before text goes into JSON-LD.
+ *
+ * Explanations are stored as plain prose today, but a stray tag would be
+ * copied verbatim into the structured data and read as markup by a parser.
+ */
+export function plainText(value: string | null | undefined): string {
+  return (value ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Serialises JSON-LD for embedding in a <script> tag.
+ *
+ * JSON.stringify alone is not enough: a "</script>" inside any string value
+ * would close the tag early and drop the rest of the document into the page
+ * as markup. Escaping "<" removes that path entirely, and the escape is
+ * transparent to a JSON parser.
+ */
+export function jsonLd(value: unknown): string {
+  return JSON.stringify(value).replace(/</g, '\\u003c')
+}
+
 /** Meta description: the direct answer, cut to a length Google will show. */
 export function metaDescriptionFrom(directAnswer: string | null, fallback: string): string {
   const text = (directAnswer ?? '').trim() || fallback
