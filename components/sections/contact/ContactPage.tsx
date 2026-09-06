@@ -5,6 +5,7 @@ import { Input, Textarea, Select } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { cn } from '@/lib/utils'
 import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
+import { apiContactSubmit } from '@/lib/api'
 
 const OFFICE_DETAILS = [
   {
@@ -48,18 +49,29 @@ const OFFICE_DETAILS = [
   },
 ]
 
-type FormState = 'idle' | 'submitting' | 'success'
+type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
 export function ContactPage() {
   const [formState, setFormState] = useState<FormState>('idle')
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setFormState('submitting')
-    // Simulated submission
-    await new Promise((r) => setTimeout(r, 1500))
-    setFormState('success')
+    setErrorMsg(null)
+    try {
+      await apiContactSubmit({
+        name: form.name,
+        email: form.email,
+        subject: form.subject || 'General Inquiry',
+        message: form.message,
+      })
+      setFormState('success')
+    } catch (err: any) {
+      setFormState('error')
+      setErrorMsg(err.message || 'Failed to send message. Please try again.')
+    }
   }
 
   return (
@@ -135,12 +147,19 @@ export function ContactPage() {
                   <p className="text-body-md text-body-text dark:text-slate-400 max-w-sm">
                     Thank you for reaching out. Our team will get back to you within 24 hours.
                   </p>
-                  <Button variant="secondary" size="sm" onClick={() => setFormState('idle')}>
+                  <Button variant="secondary" size="sm" onClick={() => { setFormState('idle'); setForm({ name: '', email: '', subject: '', message: '' }) }}>
                     Send Another Message
                   </Button>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="flex flex-col gap-5" noValidate>
+                  {/* Error display */}
+                  {formState === 'error' && errorMsg && (
+                    <div className="p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-lg text-sm text-red-700 dark:text-red-300">
+                      {errorMsg}
+                    </div>
+                  )}
+
                   {/* All inputs: 48px height, 8px radius, stacked labels */}
                   <Input
                     label="Full Name"

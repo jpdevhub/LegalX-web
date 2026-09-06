@@ -1,8 +1,34 @@
 'use client'
 
+import { useState } from 'react'
 import { FadeUp } from '@/components/motion/MotionWrappers'
+import { apiContactSubmit } from '@/lib/api'
+
+type FormState = 'idle' | 'submitting' | 'success' | 'error'
 
 export function AboutContact() {
+  const [formState, setFormState] = useState<FormState>('idle')
+  const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setFormState('submitting')
+    setErrorMsg(null)
+    try {
+      await apiContactSubmit({
+        name: form.name,
+        email: form.email,
+        subject: 'General Inquiry (About Page)',
+        message: form.message,
+      })
+      setFormState('success')
+    } catch (err: any) {
+      setFormState('error')
+      setErrorMsg(err.message || 'Failed to send message. Please try again.')
+    }
+  }
+
   return (
     <section className="py-16 md:py-20 bg-white border-t border-hairline" aria-labelledby="contact-heading">
       <div className="max-w-[1400px] mx-auto px-5 md:px-16">
@@ -39,51 +65,95 @@ export function AboutContact() {
 
           {/* Right — compact contact form */}
           <FadeUp delay={0.1}>
-            <form
-              onSubmit={(e) => e.preventDefault()}
-              className="space-y-4"
-              aria-label="Contact form"
-            >
-              <div>
-                <label htmlFor="contact-name" className="block text-body-sm font-medium text-ink mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  id="contact-name"
-                  type="text"
-                  placeholder="Your name"
-                  className="w-full px-4 py-2.5 text-body-sm text-ink border border-hairline rounded-md bg-white placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
-                />
+            {formState === 'success' ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
+                <div className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center">
+                  <svg className="w-7 h-7 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" suppressHydrationWarning>
+                    <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-ink">Message Sent!</h3>
+                <p className="text-body-sm text-body-text max-w-xs">
+                  We&apos;ll get back to you within 24 hours.
+                </p>
+                <button
+                  onClick={() => { setFormState('idle'); setForm({ name: '', email: '', message: '' }) }}
+                  className="mt-2 text-body-sm text-primary hover:text-ink font-semibold transition-colors"
+                >
+                  Send another message
+                </button>
               </div>
-              <div>
-                <label htmlFor="contact-email" className="block text-body-sm font-medium text-ink mb-1.5">
-                  Email
-                </label>
-                <input
-                  id="contact-email"
-                  type="email"
-                  placeholder="you@example.com"
-                  className="w-full px-4 py-2.5 text-body-sm text-ink border border-hairline rounded-md bg-white placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
-                />
-              </div>
-              <div>
-                <label htmlFor="contact-message" className="block text-body-sm font-medium text-ink mb-1.5">
-                  Message
-                </label>
-                <textarea
-                  id="contact-message"
-                  rows={4}
-                  placeholder="How can we help you?"
-                  className="w-full px-4 py-2.5 text-body-sm text-ink border border-hairline rounded-md bg-white placeholder:text-muted focus:outline-none focus:border-primary transition-colors resize-none"
-                />
-              </div>
-              <button
-                type="submit"
-                className="w-full py-2.5 px-6 bg-ink text-white text-body-sm font-semibold rounded-md hover:bg-ink/90 transition-colors duration-150"
+            ) : (
+              <form
+                onSubmit={handleSubmit}
+                className="space-y-4"
+                aria-label="Contact form"
               >
-                Send Message
-              </button>
-            </form>
+                {/* Error display */}
+                {formState === 'error' && errorMsg && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                    {errorMsg}
+                  </div>
+                )}
+
+                <div>
+                  <label htmlFor="about-contact-name" className="block text-body-sm font-medium text-ink mb-1.5">
+                    Full Name
+                  </label>
+                  <input
+                    id="about-contact-name"
+                    type="text"
+                    placeholder="Your name"
+                    required
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full px-4 py-2.5 text-body-sm text-ink border border-hairline rounded-md bg-white placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="about-contact-email" className="block text-body-sm font-medium text-ink mb-1.5">
+                    Email
+                  </label>
+                  <input
+                    id="about-contact-email"
+                    type="email"
+                    placeholder="you@example.com"
+                    required
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full px-4 py-2.5 text-body-sm text-ink border border-hairline rounded-md bg-white placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="about-contact-message" className="block text-body-sm font-medium text-ink mb-1.5">
+                    Message
+                  </label>
+                  <textarea
+                    id="about-contact-message"
+                    rows={4}
+                    placeholder="How can we help you?"
+                    required
+                    value={form.message}
+                    onChange={(e) => setForm({ ...form, message: e.target.value })}
+                    className="w-full px-4 py-2.5 text-body-sm text-ink border border-hairline rounded-md bg-white placeholder:text-muted focus:outline-none focus:border-primary transition-colors resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={formState === 'submitting'}
+                  className="w-full py-2.5 px-6 bg-ink text-white text-body-sm font-semibold rounded-md hover:bg-ink/90 transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {formState === 'submitting' ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending...
+                    </span>
+                  ) : (
+                    'Send Message'
+                  )}
+                </button>
+              </form>
+            )}
           </FadeUp>
 
         </div>

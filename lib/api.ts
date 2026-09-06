@@ -192,6 +192,39 @@ export async function apiLogin(email: string, password: string): Promise<AuthUse
   return data.user
 }
 
+/** Step 1: Request a signup OTP. Validates all fields and sends a 6-digit code to the email. */
+export async function apiSignupRequestOtp(params: {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  role: 'client' | 'lawyer'
+}): Promise<{ message: string }> {
+  return apiFetch('/api/auth/signup/request-otp', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/** Step 2: Verify the OTP and create the account. */
+export async function apiSignupVerifyOtp(params: {
+  email: string
+  otp: string
+  password: string
+  firstName: string
+  lastName: string
+  role: 'client' | 'lawyer'
+}): Promise<{ message: string }> {
+  return apiFetch('/api/auth/signup/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
+}
+
+/**
+ * @deprecated Use apiSignupRequestOtp + apiSignupVerifyOtp instead.
+ * Kept for backward compatibility — the backend now rejects this endpoint.
+ */
 export async function apiSignup(params: {
   email: string
   password: string
@@ -207,6 +240,19 @@ export async function apiSignup(params: {
 
 export async function apiLogout(): Promise<void> {
   await apiFetch('/api/auth/logout', { method: 'POST' })
+}
+
+/** Submit the contact / "Get in Touch" form. */
+export async function apiContactSubmit(params: {
+  name: string
+  email: string
+  subject: string
+  message: string
+}): Promise<{ message: string }> {
+  return apiFetch('/api/contact', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  })
 }
 
 /**
