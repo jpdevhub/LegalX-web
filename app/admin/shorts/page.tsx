@@ -214,20 +214,30 @@ export default function AdminShortsPage() {
                 )}
 
                 <div className="min-w-0 flex-1">
+                  {/*
+                    Every chip carries the same explicit height and leading-none.
+                    The source name has no padding of its own, so with the pills
+                    sized by their padding it sat a couple of pixels above their
+                    centre line — visible as soon as you scan down the column.
+                  */}
                   <div className="flex items-center gap-2 flex-wrap mb-2">
-                    <span className="px-2 py-0.5 rounded bg-white/5 text-[11px] text-slate-300">{s.category}</span>
+                    <span className="inline-flex items-center h-5 px-2 rounded bg-white/5 text-[11px] leading-none text-slate-300">
+                      {s.category}
+                    </span>
                     {s.relevance_score != null && (
-                      <span className="px-2 py-0.5 rounded bg-[#C9A227]/15 text-[11px] font-bold text-[#D4AF37]">
+                      <span className="inline-flex items-center h-5 px-2 rounded bg-[#C9A227]/15 text-[11px] leading-none font-bold text-[#D4AF37]">
                         Relevance {s.relevance_score}/5
                       </span>
                     )}
                     {s.confidence && (
-                      <span className={`px-2 py-0.5 rounded border text-[11px] font-semibold uppercase ${CONFIDENCE_TONE[s.confidence]}`}>
+                      <span className={`inline-flex items-center h-5 px-2 rounded border text-[11px] leading-none font-semibold uppercase ${CONFIDENCE_TONE[s.confidence]}`}>
                         {s.confidence} confidence
                       </span>
                     )}
                     {s.source_name && (
-                      <span className="text-[11px] text-slate-500">{s.source_name}</span>
+                      <span className="inline-flex items-center h-5 text-[11px] leading-none text-slate-500">
+                        {s.source_name}
+                      </span>
                     )}
                   </div>
 
