@@ -7,7 +7,7 @@ import { motion } from 'framer-motion'
 import { LXLogoMark } from '@/components/ui/LXLogo'
 import {
   LayoutDashboard, Users, UserCircle, Wallet, ShieldAlert,
-  FileText, BarChart3, Newspaper, ScrollText, Zap, Scale, LogOut, Menu, X,
+  FileText, BarChart3, Newspaper, ScrollText, Zap, Scale, LogOut, Menu, X, UserCog,
 } from 'lucide-react'
 import { apiLogout, apiGetMe, apiGetAdminStats, type AuthUser } from '@/lib/api'
 
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin',               icon: LayoutDashboard },
   { label: 'Lawyers',   href: '/admin/lawyers',       icon: Users, badge: 'pending' as const },
   { label: 'Clients',   href: '/admin/clients',       icon: UserCircle },
+  { label: 'Accounts',  href: '/admin/accounts',      icon: UserCog },
   { label: 'Payouts',   href: '/admin/payouts',       icon: Wallet },
   { label: 'Disputes',  href: '/admin/disputes',      icon: ShieldAlert },
   { label: 'Documents', href: '/admin/documents',     icon: FileText },

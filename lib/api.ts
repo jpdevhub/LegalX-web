@@ -221,6 +221,7 @@ export async function apiSignupVerifyOtp(params: {
   })
 }
 
+
 /**
  * @deprecated Use apiSignupRequestOtp + apiSignupVerifyOtp instead.
  * Kept for backward compatibility — the backend now rejects this endpoint.
@@ -338,6 +339,7 @@ export async function apiGetLawyer(slug: string): Promise<ApiLawyer | null> {
 }
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
+
 
 export interface PendingLawyer {
   account_id: string
@@ -511,6 +513,70 @@ export async function apiBulkLawyerAction(
   return apiFetch('/api/admin/lawyers/bulk', {
     method: 'POST',
     body: JSON.stringify({ ids, action, reason }),
+  })
+}
+
+// ── Admin: accounts (single source for deletion) ──────────────────────────────
+
+export interface AdminAccount {
+  id: string
+  email: string | null
+  phone: string | null
+  first_name: string | null
+  last_name: string | null
+  role: 'client' | 'lawyer' | 'admin'
+  status: string
+  created_at: string
+  last_login_at: string | null
+  /** Lawyers only — null for everyone else. */
+  verification_status: LawyerVerificationStatus | null
+}
+
+export interface AdminAccountListParams {
+  role?: 'all' | 'client' | 'lawyer' | 'admin'
+  search?: string
+  page?: number
+  pageSize?: number
+  [key: string]: string | number | undefined
+}
+
+export async function apiGetAdminAccounts(
+  params: AdminAccountListParams = {}
+): Promise<Paginated<AdminAccount>> {
+  const data = await apiFetch<{ accounts: AdminAccount[]; total: number; page: number; pageSize: number }>(
+    `/api/admin/accounts${buildQuery(params)}`
+  )
+  return { items: data.accounts, total: data.total, page: data.page, pageSize: data.pageSize }
+}
+
+/** Account rows left behind by a delete made straight from the Supabase dashboard. */
+export async function apiGetOrphanAccounts(): Promise<{ orphans: AdminAccount[]; complete: boolean }> {
+  return apiFetch('/api/admin/accounts/orphans')
+}
+
+export interface AccountImpact {
+  account: AdminAccount | null
+  authUserExists: boolean
+  authEmail: string | null
+  /** False when the account-deletion migration has not been applied yet. */
+  impactAvailable: boolean
+  /** Row counts keyed by "table.column". */
+  tables: Record<string, number>
+  totalRows: number
+}
+
+export async function apiGetAccountImpact(id: string): Promise<AccountImpact> {
+  return apiFetch(`/api/admin/accounts/${id}/impact`)
+}
+
+export async function apiDeleteAccount(
+  id: string,
+  confirmEmail: string,
+  reason: string
+): Promise<{ deleted: boolean; email: string; rowsRemoved: number; tables: Record<string, number> }> {
+  return apiFetch(`/api/admin/accounts/${id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ confirmEmail, reason }),
   })
 }
 
@@ -874,6 +940,7 @@ export async function apiUpdateShort(
   await apiFetch(`/api/admin/shorts/${id}`, { method: 'PATCH', body: JSON.stringify(input) })
 }
 
+
 export async function apiDeleteShort(id: string): Promise<void> {
   await apiFetch(`/api/admin/shorts/${id}`, { method: 'DELETE' })
 }
@@ -1089,6 +1156,7 @@ export async function apiSubmitLawyerOnboarding(data: Record<string, any>): Prom
     body: JSON.stringify(data),
   })
 }
+
 
 // ── Admin: fetch signed document URLs for a lawyer ────────────────────────────
 export interface LawyerDocs {
