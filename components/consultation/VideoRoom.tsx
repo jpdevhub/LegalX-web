@@ -150,8 +150,16 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
   const [connState, setConnState] = useState<ConnectionState>('connecting')
   const [connError, setConnError] = useState('')
   const [remoteUsers, setRemoteUsers] = useState<IAgoraRTCRemoteUser[]>([])
-  /** Bumped whenever a remote track is added or removed. See user-published. */
-  const [trackRevision, setTrackRevision] = useState(0)
+  /**
+   * The remote video is played into this container imperatively, the same way
+   * the remote audio is played. Going through React meant the container only
+   * existed after a render that depended on the very track we were waiting
+   * for — the element was not in the DOM at the moment there was something to
+   * put in it. Audio never had that problem because it never went through a
+   * prop, which is why calls had sound and a black square.
+   */
+  const remoteVideoRef = useRef<HTMLDivElement | null>(null)
+  const [remoteHasVideo, setRemoteHasVideo] = useState(false)
 
   const [localVideo, setLocalVideo] = useState<ICameraVideoTrack | null>(null)
   const [localAudio, setLocalAudio] = useState<IMicrophoneAudioTrack | null>(null)
@@ -225,15 +233,29 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
             const exists = prev.find(u => u.uid === user.uid)
             return exists ? prev.map(u => u.uid === user.uid ? user : u) : [...prev, user]
           })
-          setTrackRevision(v => v + 1)
-          if (mediaType === 'audio') user.audioTrack?.play()
+          if (mediaType === 'audio') {
+            user.audioTrack?.play()
+          }
+
+          if (mediaType === 'video') {
+            setRemoteHasVideo(true)
+            // The container is mounted unconditionally, so it is already in the
+            // DOM here. rAF only guarantees it has been laid out — playing into
+            // a zero-height box renders nothing.
+            requestAnimationFrame(() => {
+              if (remoteVideoRef.current && user.videoTrack) {
+                user.videoTrack.play(remoteVideoRef.current)
+              }
+            })
+          }
         })
-        rtc.on('user-unpublished', (user) => {
+        rtc.on('user-unpublished', (user, mediaType) => {
           setRemoteUsers(prev => prev.map(u => u.uid === user.uid ? user : u))
-          setTrackRevision(v => v + 1)
+          if (mediaType === 'video') setRemoteHasVideo(false)
         })
         rtc.on('user-left', user => {
           setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid))
+          setRemoteHasVideo(false)
         })
         rtc.on('connection-state-change', (state) => {
           if (state === 'CONNECTED') setConnState('connected')
@@ -469,15 +491,26 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
         {/* Remote user — main view */}
         {isVideo ? (
           <div className="w-full h-full p-3">
-            {remoteUser ? (
-              <div className="w-full h-full">
-                {remoteUser.videoTrack ? (
-                  <RemoteVideoTile track={remoteUser.videoTrack} revision={trackRevision} label="Lawyer" />
-                ) : (
-                  <VideoTile track={null} label="Lawyer" noCamera />
-                )}
+            {/* Always mounted, so there is somewhere to play into the instant a
+                remote track arrives. Everything else layers on top of it. */}
+            <div
+              ref={remoteVideoRef}
+              className={`absolute inset-3 rounded-2xl overflow-hidden bg-[#0A0D14] ${
+                remoteHasVideo ? 'z-10' : 'opacity-0 pointer-events-none'
+              }`}
+            />
+            {remoteHasVideo && (
+              <div className="absolute bottom-6 left-6 z-20">
+                <span className="text-xs font-medium text-white bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md">
+                  {viewerRole === 'lawyer' ? 'Client' : 'Lawyer'}
+                </span>
               </div>
-            ) : (
+            )}
+            {remoteUser && !remoteHasVideo ? (
+              <div className="w-full h-full">
+                <VideoTile track={null} label={viewerRole === 'lawyer' ? 'Client' : 'Lawyer'} noCamera />
+              </div>
+            ) : !remoteUser ? (
               <div className="w-full h-full flex flex-col items-center justify-center text-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-[#C9A227]/10 flex items-center justify-center">
                   <svg className="w-8 h-8 text-[#C9A227]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
@@ -500,7 +533,7 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                   ))}
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         ) : (
           /* Voice-only / chat: centered status card */
@@ -600,24 +633,6 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
 }
 
 // ── Remote video tile (subscribes to Agora remote track) ─────────────────────
-function RemoteVideoTile({ track, revision, label }: { track: any; revision?: number; label: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    if (!track || !ref.current) return
-    // Replayed on revision changes too: the track object is reused by the SDK,
-    // so [track] alone never fires again once it has been seen once.
-    track.play(ref.current)
-    return () => { try { track.stop() } catch { /* already stopped */ } }
-  }, [track, revision])
-  return (
-    <div className="relative w-full h-full bg-[#0A0D14] rounded-2xl overflow-hidden">
-      <div ref={ref} className="w-full h-full" />
-      <div className="absolute bottom-3 left-3">
-        <span className="text-xs font-medium text-white bg-black/60 backdrop-blur-sm px-2 py-1 rounded-md">{label}</span>
-      </div>
-    </div>
-  )
-}
 
 // ── Local video PiP ───────────────────────────────────────────────────────────
 function LocalVideoTile({ track, camEnabled }: { track: ICameraVideoTrack; camEnabled: boolean }) {
