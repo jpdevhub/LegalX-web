@@ -25,7 +25,7 @@
  * middle of the feature.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ConsultIcon } from '@/components/ui/ConsultIcons'
 import { apiFetch, apiGetMe } from '@/lib/api'
@@ -37,12 +37,38 @@ const CONSULT_TYPES = [
   { key: 'video', label: 'Video', desc: 'Face-to-face HD video call' },
 ] as const
 
-type ConsultType = typeof CONSULT_TYPES[number]['key']
+export type ConsultType = typeof CONSULT_TYPES[number]['key']
 type Step = 'idle' | 'loading' | 'unavailable' | 'error' | 'payments-paused'
 
-export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
+export function BookingWidget({
+  lawyer,
+  type: controlledType,
+  onTypeChange,
+}: {
+  lawyer: ApiLawyer
+  /** Set by the profile's consult buttons. Omitted, the widget owns its own. */
+  type?: ConsultType
+  onTypeChange?: (t: ConsultType) => void
+}) {
   const router = useRouter()
-  const [type, setType]     = useState<ConsultType>('chat')
+  // The real balance, not a fixed "₹100". A client who has spent most of it
+  // was previously told they had the full grant, then handed a failure when
+  // the server disagreed.
+  const [creditPaise, setCreditPaise] = useState<number | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    apiGetMe()
+      .then(me => { if (!cancelled && typeof me?.freeCreditPaise === 'number') setCreditPaise(me.freeCreditPaise) })
+      .catch(() => { /* signed out — the button routes to login anyway */ })
+    return () => { cancelled = true }
+  }, [])
+
+  const [ownType, setOwnType] = useState<ConsultType>('chat')
+  const type = controlledType ?? ownType
+  const setType = (t: ConsultType) => {
+    setOwnType(t)
+    onTypeChange?.(t)
+  }
   const [step, setStep]     = useState<Step>('idle')
   const [errMsg, setErrMsg] = useState('')
 
@@ -52,6 +78,7 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
     video: lawyer.fees.video,
   }
   const fee = feeMap[type]
+  const creditMinutes = creditPaise === null ? null : Math.floor(creditPaise / (fee * 100))
 
   const handleConsult = useCallback(async () => {
     setStep('loading')
@@ -157,9 +184,10 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
       const msg = err?.message || 'Something went wrong. Please try again.'
       if (msg === 'Payment cancelled') {
         setStep('idle')
-      } else if (/on hold while we switch payment providers/i.test(msg)) {
+      } else if (/free credit|payment providers/i.test(msg)) {
         // Out of free credit and the gateway is off. Not an error the client
         // can do anything about, so it reads as a notice rather than a failure.
+        setErrMsg(msg)
         setStep('payments-paused')
       } else {
         setErrMsg(msg)
@@ -226,11 +254,17 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
           <span className="text-white">Per minute, exact usage</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">Hold</span>
-          <span className="text-white">₹{fee * 30} (30 min max)</span>
+          <span className="text-slate-400">Free credit</span>
+          <span className={creditMinutes !== null && creditMinutes === 0 ? 'text-amber-400' : 'text-white'}>
+            {creditPaise === null ? '—' : `₹${(creditPaise / 100).toFixed(2).replace(/\.00$/, '')}`}
+          </span>
         </div>
         <p className="text-[11px] text-slate-600 mt-1">
-          Funds are held, not charged. You only pay for actual time used.
+          {creditPaise === null
+            ? 'Nothing is charged to a card, and a call the lawyer does not answer costs nothing.'
+            : (creditMinutes ?? 0) > 0
+              ? `That covers about ${creditMinutes} minute${creditMinutes === 1 ? '' : 's'} at this rate. Nothing is charged to a card, and a call the lawyer does not answer costs nothing.`
+              : `That is less than one minute at ₹${fee}/min, so this call cannot start yet.`}
         </p>
       </div>
 
@@ -242,11 +276,11 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
       )}
       {step === 'payments-paused' && (
         <div className="mx-5 mt-4 p-4 bg-[#C9A227]/10 border border-[#C9A227]/25 rounded-sm">
-          <p className="text-sm font-semibold text-[#D4AF37] mb-1">Paid consultations — coming soon</p>
+          <p className="text-sm font-semibold text-[#D4AF37] mb-1">Free credit used up</p>
           <p className="text-xs text-slate-400 leading-relaxed">
-            You have used your free consultation credit, and paid calls are on hold while we
-            move to a new payment provider. Hold tight — this is back shortly. For anything
-            urgent, message us on WhatsApp.
+            {errMsg || 'Your free consultation credit is finished.'} Paid calls are on hold
+            while we move to a new payment provider — back shortly. For anything urgent,
+            message us on WhatsApp.
           </p>
         </div>
       )}
@@ -279,7 +313,7 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
         </button>
 
         <p className="text-center text-[11px] text-slate-600 mt-3">
-          Funds held by Razorpay · Only charged for time used
+          Charged per minute from your free credit · Nothing held on a card
         </p>
       </div>
     </div>

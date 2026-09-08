@@ -82,10 +82,15 @@ function LawyerCard({ lawyer }: { lawyer: ApiLawyer }) {
       {/* Name + avatar row */}
       <div className="flex items-center gap-3 mb-3">
         <div
-          className="w-11 h-11 rounded-md flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+          className="w-11 h-11 rounded-md flex items-center justify-center text-white font-bold text-sm flex-shrink-0 overflow-hidden"
           style={{ backgroundColor: lawyer.avatarBg }}
         >
-          {lawyer.initials}
+          {lawyer.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={lawyer.avatarUrl} alt="" className="w-full h-full object-cover" />
+          ) : (
+            lawyer.initials
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-body-md font-semibold text-ink dark:text-white group-hover:text-primary transition-colors duration-150 truncate">

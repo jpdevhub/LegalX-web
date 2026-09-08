@@ -4,6 +4,7 @@ import './globals.css'
 import { DarkModeProvider } from '@/components/providers/DarkModeProvider'
 import { CsrfProvider } from '@/components/providers/CsrfProvider'
 import { WhatsAppButton } from '@/components/ui/WhatsAppButton'
+import { IncomingCallListener } from '@/components/consultation/IncomingCallListener'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -155,6 +156,13 @@ export default function RootLayout({
             {children}
             {/* Sitewide, so support is one tap away from any page. */}
             <WhatsAppButton />
+            {/*
+              Mounted at the root so a lawyer is reachable on every page. It was
+              previously inside the lawyer dashboard's layout, so a call placed
+              while they were anywhere else on the site rang into a component
+              that was not mounted and lapsed unanswered.
+            */}
+            <IncomingCallListener />
           </DarkModeProvider>
         </CsrfProvider>
       </body>

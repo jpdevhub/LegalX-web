@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { apiGetLawyerSettings, apiUpdateLawyerSettings, type LawyerSettings } from '@/lib/api'
+import { apiGetLawyerSettings, apiUpdateLawyerSettings, apiUploadLawyerDoc, apiGetMe, type LawyerSettings } from '@/lib/api'
 
 const COURTS = ['Supreme Court', 'High Court', 'District Court', 'Family Court', 'Consumer Forum', 'Tribunal', 'Sessions Court']
 const LANGUAGES = ['English', 'Hindi', 'Marathi', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Bengali', 'Gujarati', 'Punjabi', 'Urdu']
@@ -51,11 +51,17 @@ export default function SettingsPage() {
   const [saving,  setSaving]  = useState(false)
   const [saved,   setSaved]   = useState(false)
 
+  const [accountId, setAccountId] = useState<string | null>(null)
+  // Bumped after an upload so the browser re-requests the photo instead of
+  // serving the cached redirect for the picture that was just replaced.
+  const [photoVersion, setPhotoVersion] = useState(0)
+
   useEffect(() => {
     apiGetLawyerSettings().then(s => {
       if (s) setForm(s)
       setLoading(false)
     })
+    apiGetMe().then(me => { if (me) setAccountId(me.id) })
   }, [])
 
   function set<K extends keyof LawyerSettings>(key: K, val: LawyerSettings[K]) {
@@ -67,16 +73,43 @@ export default function SettingsPage() {
     set(key as any, arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val])
   }
 
+  const [saveError, setSaveError] = useState<string | null>(null)
+
   async function handleSave() {
+    // Validated here rather than by disabling the button. A dimmed button with
+    // no message is indistinguishable from a broken one — which is exactly how
+    // this read when a rate below the floor silently disabled it.
+    if (consultFeeInvalid) {
+      setSaveError('Every consultation rate must be at least ₹25/min. Fix the highlighted rates below.')
+      document.getElementById('consult-rates')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      return
+    }
+
     setSaving(true)
+    setSaveError(null)
     try {
       await apiUpdateLawyerSettings(form)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } finally { setSaving(false) }
+    } catch (err: any) {
+      // Previously a bare finally, so a rejected save just stopped the spinner
+      // and looked identical to a successful one.
+      setSaveError(err?.message || 'Could not save your changes. Please try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const consultFeeInvalid = form.consultationEnabled && (form.consultationFeePerMin ?? 0) < 25
+  // Each channel is priced separately, so each is validated separately —
+  // a valid chat rate must not mask a video rate below the floor.
+  const FEE_FIELDS = [
+    { key: 'feeChat'  as const, label: 'Chat',  hint: 'Text consultation' },
+    { key: 'feeVoice' as const, label: 'Voice', hint: 'Audio call' },
+    { key: 'feeVideo' as const, label: 'Video', hint: 'Video call' },
+  ]
+  const feeInvalid = (k: 'feeChat' | 'feeVoice' | 'feeVideo') =>
+    !!form.consultationEnabled && (form[k] ?? 0) < 25
+  const consultFeeInvalid = FEE_FIELDS.some(f => feeInvalid(f.key))
 
   if (loading) {
     return (
@@ -95,7 +128,7 @@ export default function SettingsPage() {
         </div>
         <button
           onClick={handleSave}
-          disabled={saving || !!consultFeeInvalid}
+          disabled={saving}
           className="px-5 py-2.5 rounded-xl bg-[#C9A227] hover:bg-[#D4B840] text-[#0A0D14] text-sm font-bold transition-all disabled:opacity-50 flex items-center gap-2"
         >
           {saved ? (
@@ -104,9 +137,21 @@ export default function SettingsPage() {
         </button>
       </div>
 
+      {saveError && (
+        <div className="mb-6 p-3.5 rounded-xl bg-red-500/10 border border-red-500/25 text-sm text-red-300">
+          {saveError}
+        </div>
+      )}
+
       <div className="space-y-5">
         {/* Professional Bio */}
         <Section title="Professional Profile">
+          <PhotoField
+            url={form.profilePhotoUrl ?? null}
+            name={`${form.firstName ?? ''} ${form.lastName ?? ''}`.trim()}
+            photoEndpoint={accountId ? `/api/lawyers/${accountId}/photo?v=${photoVersion}` : ''}
+            onUploaded={path => { set('profilePhotoUrl', path); setPhotoVersion(v => v + 1) }}
+          />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="First Name" required>
               <input className={inputCls} value={form.firstName ?? ''} onChange={e => set('firstName', e.target.value)} placeholder="Advocate's first name" />
@@ -202,20 +247,31 @@ export default function SettingsPage() {
                   })}
                 </div>
               </div>
-              <Field label="Per-minute Consultation Rate (INR)">
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
-                  <input
-                    type="number"
-                    min={25}
-                    value={form.consultationFeePerMin ?? ''}
-                    onChange={e => set('consultationFeePerMin', parseFloat(e.target.value))}
-                    placeholder="25"
-                    className={`${inputCls} pl-8 ${consultFeeInvalid ? 'border-red-500/50' : ''}`}
-                  />
-                </div>
-                {consultFeeInvalid && <p className="text-red-400 text-xs mt-1">Minimum rate is ₹25/min as per platform policy</p>}
-              </Field>
+              <div id="consult-rates" className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {FEE_FIELDS.map(f => (
+                  <Field key={f.key} label={`${f.label} — ₹/min`}>
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm">₹</span>
+                      <input
+                        type="number"
+                        min={25}
+                        value={form[f.key] ?? ''}
+                        onChange={e => set(f.key, parseFloat(e.target.value))}
+                        placeholder="25"
+                        className={`${inputCls} pl-8 ${feeInvalid(f.key) ? 'border-red-500/50' : ''}`}
+                      />
+                    </div>
+                    <p className="text-slate-500 text-[11px] mt-1">{f.hint}</p>
+                  </Field>
+                ))}
+              </div>
+              {consultFeeInvalid && (
+                <p className="text-red-400 text-xs mt-2">Minimum rate is ₹25/min as per platform policy</p>
+              )}
+              <p className="text-slate-500 text-xs mt-2">
+                Saved rates appear immediately on your public profile and in the admin portal —
+                they are read from the same record, not copied.
+              </p>
             </div>
           )}
         </Section>
@@ -237,8 +293,20 @@ export default function SettingsPage() {
             <Field label="Bank Account Holder Name">
               <input className={inputCls} value={form.bankAccountName ?? ''} onChange={e => set('bankAccountName', e.target.value)} placeholder="Name as on bank account" />
             </Field>
-            <Field label="Account Number">
-              <input className={inputCls} value={form.bankAccountNumber ?? ''} onChange={e => set('bankAccountNumber', e.target.value)} placeholder="Bank account number" />
+            <Field label="Bank Name">
+              <input className={inputCls} value={form.bankName ?? ''} readOnly disabled placeholder="Set during verification" />
+              {/*
+                The account number is stored encrypted (account_number_enc) and
+                there is no encryption helper in this codebase yet, so this form
+                cannot write one without putting it in the clear. It is captured
+                during onboarding; changing it is a support request until that
+                exists. Showing a field that silently discards what you type
+                would be worse than not showing one.
+              */}
+              <p className="text-slate-500 text-[11px] mt-1">
+                To change your account number, contact support — it is stored encrypted
+                and cannot be edited here.
+              </p>
             </Field>
             <Field label="IFSC Code">
               <input className={inputCls} value={form.bankIfsc ?? ''} onChange={e => set('bankIfsc', e.target.value.toUpperCase())} placeholder="e.g. SBIN0001234" maxLength={11} />
@@ -267,13 +335,97 @@ export default function SettingsPage() {
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#080B12]/90 backdrop-blur-md border-t border-white/8 lg:hidden">
         <button
           onClick={handleSave}
-          disabled={saving || !!consultFeeInvalid}
+          disabled={saving}
           className="w-full py-3 rounded-xl bg-[#C9A227] hover:bg-[#D4B840] text-[#0A0D14] text-sm font-bold transition-all disabled:opacity-50"
         >
           {saved ? 'Saved!' : saving ? 'Saving…' : 'Save Changes'}
         </button>
       </div>
       <div className="h-20 lg:hidden" /> {/* spacer for sticky bar */}
+    </div>
+  )
+}
+
+/**
+ * Profile photo.
+ *
+ * Uploads through the same endpoint onboarding uses, then writes the returned
+ * storage path into the form so it is saved with everything else. The photo is
+ * read from lawyer_profiles.profile_photo_url, which is the column the public
+ * directory and the admin portal already read — so changing it here changes it
+ * everywhere, with nothing to copy across.
+ */
+function PhotoField({
+  url, name, photoEndpoint, onUploaded,
+}: { url: string | null; name: string; photoEndpoint: string; onUploaded: (path: string) => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [preview, setPreview] = useState<string | null>(null)
+
+  const initials = name
+    .split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]?.toUpperCase()).join('') || 'LX'
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!/^image\/(jpeg|png)$/.test(file.type)) {
+      setError('Use a JPEG or PNG image.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('That image is over 5 MB. Please use a smaller one.')
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+    // Shown straight away from the local file: the stored path is not publicly
+    // readable, so waiting on a round trip would leave the frame empty after a
+    // successful upload and look like it had failed.
+    const localUrl = URL.createObjectURL(file)
+    setPreview(localUrl)
+
+    try {
+      const { path } = await apiUploadLawyerDoc(file, 'profile_photo')
+      onUploaded(path)
+    } catch (err: any) {
+      setError(err?.message || 'Upload failed. Please try again.')
+      setPreview(null)
+      URL.revokeObjectURL(localUrl)
+    } finally {
+      setBusy(false)
+      e.target.value = ''
+    }
+  }
+
+  // profile_photo_url holds a storage path in a private bucket, so it cannot be
+  // rendered directly. The backend signs it on demand at this endpoint.
+  const shown = preview ?? (url ? (/^https?:\/\//.test(url) ? url : photoEndpoint) : null)
+
+  return (
+    <div className="flex items-center gap-4 mb-5 pb-5 border-b border-white/8">
+      <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
+        {shown
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={shown} alt="" className="w-full h-full object-cover" />
+          : <span className="text-xl font-bold text-[#C9A227]">{initials}</span>}
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-white mb-1">Profile photo</p>
+        <p className="text-xs text-slate-500 mb-2.5">
+          JPEG or PNG, up to 5&nbsp;MB. Shown on your public profile and to clients before they call.
+        </p>
+        <label className="inline-flex items-center gap-2 px-3 h-9 rounded-lg border border-white/15 bg-white/5 hover:bg-white/10 text-slate-200 text-xs font-semibold cursor-pointer transition-colors">
+          <input type="file" accept="image/jpeg,image/png" onChange={handleFile} disabled={busy} className="hidden" />
+          {busy ? 'Uploading…' : url || preview ? 'Replace photo' : 'Upload photo'}
+        </label>
+        {error && <p className="text-red-400 text-xs mt-2">{error}</p>}
+        {(url || preview) && !error && !busy && (
+          <p className="text-emerald-400 text-xs mt-2">Photo attached — press Save Changes to apply.</p>
+        )}
+      </div>
     </div>
   )
 }
