@@ -1058,6 +1058,63 @@ export async function apiIngestShort(input: {
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 
+// ── Wallet ────────────────────────────────────────────────────────────────────
+
+export interface WalletTransaction2 {
+  id: string
+  type: 'credit' | 'debit'
+  amount: number
+  balance_after: number
+  reference_type: string | null
+  note: string | null
+  created_at: string
+}
+
+export interface WalletSummary {
+  /** Promotional grant. Not money: never refundable or withdrawable. */
+  freeCreditPaise: number
+  /** Money the client actually paid in. */
+  walletPaise: number
+  spendablePaise: number
+  transactions: WalletTransaction2[]
+  /** True while Razorpay is on test keys. */
+  testMode: boolean
+}
+
+export async function apiGetWallet(): Promise<WalletSummary> {
+  return apiFetch('/api/wallet')
+}
+
+export async function apiCreateTopupOrder(amountPaise: number): Promise<{
+  orderId: string; amount: number; currency: string; keyId: string; testMode: boolean
+}> {
+  return apiFetch('/api/wallet/topup/order', {
+    method: 'POST',
+    body: JSON.stringify({ amountPaise }),
+  })
+}
+
+export async function apiVerifyTopup(input: {
+  razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string
+}): Promise<{ ok: boolean; walletPaise: number; alreadyCredited?: boolean }> {
+  return apiFetch('/api/wallet/topup/verify', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  })
+}
+
+/** Loads Razorpay checkout once, on demand. */
+export async function loadRazorpay(): Promise<void> {
+  if ((window as unknown as { Razorpay?: unknown }).Razorpay) return
+  await new Promise<void>((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+    s.onload = () => resolve()
+    s.onerror = () => reject(new Error('Could not reach the payment provider.'))
+    document.head.appendChild(s)
+  })
+}
+
 // ── Consultation chat ─────────────────────────────────────────────────────────
 
 export interface ChatMessage {
