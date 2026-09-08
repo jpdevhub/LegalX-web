@@ -150,6 +150,8 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
   const [connState, setConnState] = useState<ConnectionState>('connecting')
   const [connError, setConnError] = useState('')
   const [remoteUsers, setRemoteUsers] = useState<IAgoraRTCRemoteUser[]>([])
+  /** Bumped whenever a remote track is added or removed. See user-published. */
+  const [trackRevision, setTrackRevision] = useState(0)
 
   const [localVideo, setLocalVideo] = useState<ICameraVideoTrack | null>(null)
   const [localAudio, setLocalAudio] = useState<IMicrophoneAudioTrack | null>(null)
@@ -203,17 +205,32 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
         // below would otherwise be reading a possibly-null binding.
         const rtc = client
 
-        // Event listeners for remote users
+        /**
+         * Remote users, and why this bumps a counter.
+         *
+         * The SDK hands back the same IAgoraRTCRemoteUser object every time and
+         * fills in videoTrack on it in place. Audio and video are published as
+         * two separate events, so when the video one arrives the object in
+         * state is already the identical reference — React re-renders the list
+         * but every child sees the prop it saw before, and the remote video is
+         * never played. Audio worked because it is played imperatively here,
+         * which is exactly why a call had sound and a black square.
+         *
+         * The counter gives the tile a value that really changes, so it
+         * re-runs and plays the track that has just appeared.
+         */
         rtc.on('user-published', async (user, mediaType) => {
           await rtc.subscribe(user, mediaType)
           setRemoteUsers(prev => {
             const exists = prev.find(u => u.uid === user.uid)
             return exists ? prev.map(u => u.uid === user.uid ? user : u) : [...prev, user]
           })
+          setTrackRevision(v => v + 1)
           if (mediaType === 'audio') user.audioTrack?.play()
         })
-        rtc.on('user-unpublished', (user, mediaType) => {
+        rtc.on('user-unpublished', (user) => {
           setRemoteUsers(prev => prev.map(u => u.uid === user.uid ? user : u))
+          setTrackRevision(v => v + 1)
         })
         rtc.on('user-left', user => {
           setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid))
@@ -455,7 +472,7 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
             {remoteUser ? (
               <div className="w-full h-full">
                 {remoteUser.videoTrack ? (
-                  <RemoteVideoTile track={remoteUser.videoTrack} label="Lawyer" />
+                  <RemoteVideoTile track={remoteUser.videoTrack} revision={trackRevision} label="Lawyer" />
                 ) : (
                   <VideoTile track={null} label="Lawyer" noCamera />
                 )}
@@ -583,13 +600,15 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
 }
 
 // ── Remote video tile (subscribes to Agora remote track) ─────────────────────
-function RemoteVideoTile({ track, label }: { track: any; label: string }) {
+function RemoteVideoTile({ track, revision, label }: { track: any; revision?: number; label: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!track || !ref.current) return
+    // Replayed on revision changes too: the track object is reused by the SDK,
+    // so [track] alone never fires again once it has been seen once.
     track.play(ref.current)
-    return () => { try { track.stop() } catch {} }
-  }, [track])
+    return () => { try { track.stop() } catch { /* already stopped */ } }
+  }, [track, revision])
   return (
     <div className="relative w-full h-full bg-[#0A0D14] rounded-2xl overflow-hidden">
       <div ref={ref} className="w-full h-full" />
