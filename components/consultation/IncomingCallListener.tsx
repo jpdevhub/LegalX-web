@@ -42,6 +42,15 @@ export function IncomingCallListener() {
   const [isLawyer, setIsLawyer] = useState(false)
   const [call, setCall] = useState<IncomingCall | null>(null)
   const esRef = useRef<EventSource | null>(null)
+  /**
+   * Calls this browser has already answered or declined.
+   *
+   * The poll and the cancel request race: declining clears the banner, then a
+   * tick four seconds later reads a ring row that is still unexpired because
+   * the PATCH has not landed, and the call rings again. Remembering what was
+   * dismissed makes that impossible regardless of ordering.
+   */
+  const dismissed = useRef<Set<string>>(new Set())
   const mounted = useRef(true)
 
   useEffect(() => {
@@ -81,7 +90,7 @@ export function IncomingCallListener() {
       es.addEventListener('incoming_call', (e: MessageEvent) => {
         try {
           const data = JSON.parse(e.data) as IncomingCall
-          if (mounted.current) setCall(data)
+          if (mounted.current && !dismissed.current.has(data.consultationId)) setCall(data)
         } catch { /* ignore malformed */ }
       })
 
@@ -101,10 +110,43 @@ export function IncomingCallListener() {
     }
   }, [isLawyer])
 
+  /**
+   * Polling fallback.
+   *
+   * SSE is the fast path, but it has failed twice in ways the browser cannot
+   * see — a rewrite that buffered the stream, and blocked requests. Both leave
+   * a connection that looks healthy and delivers nothing, so a lawyer marked
+   * Available misses every call with no error anywhere.
+   *
+   * Four seconds is well inside the twenty-second ring window, so a call is
+   * still answerable even when the stream never arrives. Whichever source gets
+   * there first wins; setCall is keyed on the consultation so the second one
+   * changes nothing.
+   */
+  useEffect(() => {
+    if (!isLawyer) return
+    let stopped = false
+
+    const poll = async () => {
+      if (stopped || document.hidden) return
+      try {
+        const res = await apiFetch<{ call: IncomingCall | null }>('/api/consultations/incoming')
+        if (stopped || !res.call) return
+        if (dismissed.current.has(res.call.consultationId)) return
+        setCall(prev => (prev?.consultationId === res.call!.consultationId ? prev : res.call))
+      } catch { /* offline or signed out — the next tick tries again */ }
+    }
+
+    poll()
+    const id = setInterval(poll, 4000)
+    return () => { stopped = true; clearInterval(id) }
+  }, [isLawyer])
+
   const decline = useCallback(async () => {
     const current = call
     setCall(null)
     if (!current) return
+    dismissed.current.add(current.consultationId)
     try {
       // /cancel, not /decline: the latter is not a route, so every decline used
       // to 404 in silence and leave the consultation pending with its hold in
@@ -116,7 +158,9 @@ export function IncomingCallListener() {
   const accept = useCallback(() => {
     const current = call
     setCall(null)
-    if (current) router.push(`/consultation/${current.consultationId}`)
+    if (!current) return
+    dismissed.current.add(current.consultationId)
+    router.push(`/consultation/${current.consultationId}`)
   }, [call, router])
 
   if (!isLawyer) return null
