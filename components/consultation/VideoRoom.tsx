@@ -27,6 +27,25 @@ import { apiFetch } from '@/lib/api'
 
 AgoraRTC.setLogLevel(4) // NONE in production to prevent console noise
 
+/**
+ * Serialises joining and leaving across effect runs.
+ *
+ * Both participants derive their Agora uid from their own account id, so the
+ * two people in a call never collide — but the same person mounting twice does.
+ * React runs this effect, tears it down and runs it again in development, and
+ * the second run was joining with the same uid while the first was still in the
+ * channel. Agora resolves that by evicting one of them:
+ *
+ *   AgoraRTCError UID_CONFLICT
+ *
+ * Making teardown wait for its own join to finish (which stopped
+ * OPERATION_ABORTED) made this more likely, not less: the first run now
+ * reliably completes its join before leaving, so both were briefly present.
+ *
+ * Module scope rather than a ref, because the two runs do not share one.
+ */
+let roomHandoff: Promise<void> = Promise.resolve()
+
 type ConnectionState = 'connecting' | 'connected' | 'disconnected' | 'error'
 type ConsultType = 'video' | 'voice' | 'chat'
 
@@ -143,70 +162,165 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
   const isVoice = type === 'voice' || type === 'video'
 
   // ── Setup: create tracks + join channel ─────────────────────────────────────
+  /**
+   * Joining is a sequence of awaits — permission prompts, track creation, then
+   * the join itself — and React mounts this effect twice in development. The
+   * second mount's cleanup used to fire while the first join was still in
+   * flight, and leaving a channel mid-join aborts it:
+   *
+   *   AgoraRTCError OPERATION_ABORTED: cancel token canceled
+   *
+   * which surfaced as a dead call with no audio or video. Two things fix it.
+   * The teardown waits for init() to settle before leaving, so leave() is never
+   * called against a pending join. And init() checks after every await whether
+   * it has been cancelled, releasing anything it already opened — otherwise the
+   * abandoned mount keeps the microphone.
+   */
   useEffect(() => {
-    let client: IAgoraRTCClient
+    let cancelled = false
+    let client: IAgoraRTCClient | null = null
     let audioTrack: IMicrophoneAudioTrack | null = null
     let videoTrack: ICameraVideoTrack | null = null
 
+    // Wait for any previous run to finish leaving before joining.
+    const previous = roomHandoff
+
+    const releaseTracks = () => {
+      audioTrack?.close()
+      videoTrack?.close()
+      audioTrack = null
+      videoTrack = null
+    }
+
     async function init() {
       try {
+        await previous
+        if (cancelled) return
+
         client = AgoraRTC.createClient({ mode: 'rtc', codec: 'vp8' })
         clientRef.current = client
+        // Narrowed once: `client` is nulled by the teardown, so the closures
+        // below would otherwise be reading a possibly-null binding.
+        const rtc = client
 
         // Event listeners for remote users
-        client.on('user-published', async (user, mediaType) => {
-          await client.subscribe(user, mediaType)
+        rtc.on('user-published', async (user, mediaType) => {
+          await rtc.subscribe(user, mediaType)
           setRemoteUsers(prev => {
             const exists = prev.find(u => u.uid === user.uid)
             return exists ? prev.map(u => u.uid === user.uid ? user : u) : [...prev, user]
           })
           if (mediaType === 'audio') user.audioTrack?.play()
         })
-        client.on('user-unpublished', (user, mediaType) => {
+        rtc.on('user-unpublished', (user, mediaType) => {
           setRemoteUsers(prev => prev.map(u => u.uid === user.uid ? user : u))
         })
-        client.on('user-left', user => {
+        rtc.on('user-left', user => {
           setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid))
         })
-        client.on('connection-state-change', (state) => {
-          if (state === 'CONNECTED') { setConnState('connected'); timer.start() }
+        rtc.on('connection-state-change', (state) => {
+          if (state === 'CONNECTED') setConnState('connected')
           if (state === 'DISCONNECTED') setConnState('disconnected')
         })
 
         // Create local media tracks
         if (isVoice) {
           audioTrack = await AgoraRTC.createMicrophoneAudioTrack()
+          if (cancelled) return releaseTracks()
           setLocalAudio(audioTrack)
         }
         if (isVideo) {
           videoTrack = await AgoraRTC.createCameraVideoTrack({ optimizationMode: 'motion' })
+          if (cancelled) return releaseTracks()
           setLocalVideo(videoTrack)
         }
 
-        // Join channel
-        await client.join(appId, channel, token, uid || null)
+        // The token is minted for this exact uid, so a null here would have
+        // Agora assign a random one and reject the token as a mismatch.
+        if (typeof uid !== 'number' || !Number.isFinite(uid)) {
+          throw new Error('This session is missing its user id. Please rejoin from your dashboard.')
+        }
+
+        await rtc.join(appId, channel, token, uid)
+        if (cancelled) return releaseTracks()
 
         // Publish tracks
         const tracks = [audioTrack, videoTrack].filter(Boolean) as (ILocalAudioTrack | ILocalVideoTrack)[]
-        if (tracks.length) await client.publish(tracks)
+        if (tracks.length) await rtc.publish(tracks)
+        if (cancelled) return releaseTracks()
 
         setConnState('connected')
-        timer.start()
       } catch (err: any) {
+        // An aborted join is what teardown looks like from inside init, not a
+        // failure worth showing anyone.
+        const aborted =
+          cancelled ||
+          err?.code === 'OPERATION_ABORTED' ||
+          /OPERATION_ABORTED|cancel token canceled/i.test(String(err?.message ?? ''))
+
+        releaseTracks()
+        if (aborted) return
+
         console.error('[VideoRoom] init error:', err)
-        setConnError(err.message || 'Failed to connect to the session')
+        setConnError(err?.message || 'Failed to connect to the session')
         setConnState('error')
       }
     }
 
-    init()
+    const ready = init()
 
     return () => {
-      audioTrack?.close()
-      videoTrack?.close()
-      client?.leave().catch(() => {})
+      cancelled = true
+      // Wait for init to settle first — leaving a channel while its join is
+      // still running is what raises OPERATION_ABORTED — then publish the
+      // teardown so the next run waits for the channel to be free.
+      roomHandoff = ready
+        .catch(() => {})
+        .then(async () => {
+          releaseTracks()
+          try { await client?.leave() } catch { /* already gone */ }
+          client = null
+        })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * The clock starts when someone else is in the room, not when you arrive.
+   *
+   * It used to start on your own connection-state-change, so a client who
+   * placed a call sat watching the timer run while the lawyer's phone was still
+   * ringing — and a lawyer who never answered still produced minutes on screen.
+   * What is billed is the server's own measurement from started_at, which is
+   * stamped when the lawyer accepts; this makes the visible count agree with it
+   * rather than contradict it.
+   */
+  /** A hint that matches the failure, rather than blaming the camera for everything. */
+  const connHint = (() => {
+    const e = (connError ?? '').toUpperCase()
+    if (e.includes('UID_CONFLICT')) {
+      return 'This session was opened somewhere else. Close the other tab or window and try again.'
+    }
+    if (e.includes('PERMISSION') || e.includes('NOT_ALLOWED') || e.includes('NOTALLOWED')) {
+      return 'Check that your camera and microphone permissions are allowed for this site.'
+    }
+    if (e.includes('NOT_READABLE') || e.includes('DEVICE')) {
+      return 'Another app may be using your camera or microphone. Close it and try again.'
+    }
+    if (e.includes('TOKEN') || e.includes('INVALID_VENDOR') || e.includes('DYNAMIC_KEY')) {
+      return 'This session has expired. Go back and start the consultation again.'
+    }
+    if (e.includes('NETWORK') || e.includes('TIMEOUT')) {
+      return 'Check your internet connection and try again.'
+    }
+    return 'Check your connection, then try again.'
+  })()
+
+  const callRunning = remoteUsers.length > 0
+  useEffect(() => {
+    if (callRunning) timer.start()
+    // Deliberately not stopped when they drop: a reconnect inside a live call
+    // should not reset the elapsed time to zero.
+  }, [callRunning]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Controls ─────────────────────────────────────────────────────────────────
   const toggleMic = useCallback(async () => {
@@ -283,7 +397,10 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
           </div>
           <h2 className="text-white font-semibold mb-2">Connection Failed</h2>
           <p className="text-slate-400 text-sm mb-1">{connError}</p>
-          <p className="text-slate-600 text-xs mb-5">Check that your camera and microphone permissions are allowed.</p>
+          {/* The permissions line used to print for every failure, including
+              ones that have nothing to do with the camera — which sent people
+              to check settings that were already correct. */}
+          <p className="text-slate-600 text-xs mb-5">{connHint}</p>
           <button
             onClick={() => window.location.reload()}
             className="px-5 py-2.5 rounded-lg bg-[#C9A227] text-[#060810] font-semibold text-sm mr-2"
