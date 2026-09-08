@@ -1063,7 +1063,11 @@ export async function apiIngestShort(input: {
 export interface ChatMessage {
   id: string
   sender_id: string
-  content: string
+  content: string | null
+  /** Storage path, not a URL — read through the attachment endpoint. */
+  attachment_url?: string | null
+  attachment_name?: string | null
+  attachment_size?: number | null
   created_at: string
 }
 
@@ -1075,12 +1079,48 @@ export async function apiGetMessages(
 
 export async function apiSendMessage(
   consultationId: string,
-  content: string
+  input: { content?: string; attachmentUrl?: string; attachmentName?: string; attachmentSize?: number }
 ): Promise<{ message: ChatMessage }> {
   return apiFetch(`/api/consultations/${consultationId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(input),
   })
+}
+
+/** Uploads a document into a consultation. Either participant may. */
+export async function apiUploadChatAttachment(
+  consultationId: string,
+  file: File
+): Promise<{ path: string; name: string; size: number }> {
+  const csrfToken = document.cookie
+    .split('; ')
+    .find(r => r.startsWith(`${CSRF_COOKIE_NAME}=`))
+    ?.split('=')[1]
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const res = await fetch(
+    `/api/upload/chat-attachment?consultationId=${encodeURIComponent(consultationId)}`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: csrfToken ? { [CSRF_HEADER_NAME]: csrfToken } : {},
+      body: formData, // multipart — the browser sets the boundary
+    }
+  )
+
+  if (!res.ok) {
+    let body: { error?: string } = {}
+    try { body = await res.json() } catch { /* ignore */ }
+    throw new Error(body.error || 'Upload failed. Please try again.')
+  }
+  return res.json()
+}
+
+/** Where an attachment can actually be opened: a signed redirect. */
+export function attachmentHref(consultationId: string, path: string): string {
+  return `/api/consultations/${consultationId}/attachment?path=${encodeURIComponent(path)}`
 }
 
 export interface AppNotification {
@@ -1119,6 +1159,9 @@ export interface AgoraSession {
   type: 'chat' | 'voice' | 'video'
   status: string
   counterpartId: string | null
+  counterpartName?: string | null
+  /** Rate for this consultation, so the room can show a running cost. */
+  feePerMinute?: number | null
 }
 
 /**
@@ -1185,6 +1228,20 @@ export interface LawyerMe {
   /** Availability switch state. Top-level because `profile` renames it to `online`. */
   is_online: boolean
   profile: Record<string, any> | null
+}
+
+export interface LawyerStats {
+  consultationsThisMonth: number
+  totalHandled: number
+  minutesThisMonth: number
+  earnedThisMonth: number
+  avgRating: number | null
+  reviewCount: number
+}
+
+export async function apiGetLawyerStats(): Promise<LawyerStats | null> {
+  try { return await apiFetch<LawyerStats>('/api/lawyers/me/stats') }
+  catch { return null }
 }
 
 export async function apiGetLawyerMe(): Promise<LawyerMe | null> {
