@@ -7,8 +7,9 @@ import { motion } from 'framer-motion'
 import { Search, Check, X, MessageSquare, Star } from 'lucide-react'
 import {
   apiGetAdminLawyers, apiApproveLawyer, apiRejectLawyer,
-  apiBulkLawyerAction, apiReinstateLawyer, apiFlagLawyer,
+  apiBulkLawyerAction, apiReinstateLawyer,
   type AdminLawyer,
+  apiRequestLawyerInfo,
 } from '@/lib/api'
 import {
   StatusBadge, ReasonModal, EmptyState, ErrorState, SkeletonRows,
@@ -149,10 +150,17 @@ function AdminLawyersInner() {
     await load()
   }
 
-  const requestInfo = async (reason: string) => {
+  const requestInfo = async (message: string) => {
     if (!infoTarget) return
-    await apiFlagLawyer(infoTarget.account_id, 'complaint', `Information requested: ${reason}`)
-    setToast({ msg: 'Information request recorded.', tone: 'success' })
+    // Sends a notification and an email. It used to file a disciplinary
+    // 'complaint' flag, which the lawyer never saw and which recorded a missing
+    // document in the same table as suspensions.
+    try {
+      const res = await apiRequestLawyerInfo(infoTarget.account_id, message)
+      setToast({ msg: `Request sent to ${res.email}.`, tone: 'success' })
+    } catch (err: any) {
+      setToast({ msg: err?.message || 'Could not send the request.', tone: 'error' })
+    }
     setInfoTarget(null)
     await load()
   }
@@ -524,9 +532,9 @@ function AdminLawyersInner() {
       <ReasonModal
         open={!!infoTarget}
         title="Request additional information"
-        label="What do you need from them?"
+        label="What do you need from them? (emailed to them word for word)"
         placeholder="e.g. Bar ID card back image is unreadable — please re-upload."
-        confirmLabel="Record request"
+        confirmLabel="Send request"
         onCancel={() => setInfoTarget(null)}
         onConfirm={requestInfo}
       />

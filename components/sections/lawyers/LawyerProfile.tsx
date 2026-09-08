@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Lawyer } from '@/lib/lawyers'
-import { BookingWidget } from './BookingWidget'
+import { BookingWidget, type ConsultType } from './BookingWidget'
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
@@ -25,145 +25,50 @@ function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) 
   )
 }
 
-// ── Book from App modal ───────────────────────────────────────────────────────
-function BookFromAppModal({
-  open,
-  onClose,
-  consultType,
-  lawyerName,
-  fee,
-}: {
-  open: boolean
-  onClose: () => void
-  consultType: string
-  lawyerName: string
-  fee: number
-}) {
-  if (!open) return null
-
-  const icons = {
-    Chat: <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z" strokeLinecap="round" strokeLinejoin="round" />,
-    'Voice Call': <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.82 19.79 19.79 0 01-.07 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" strokeLinecap="round" strokeLinejoin="round" />,
-    'Video Call': <path d="M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" strokeLinecap="round" strokeLinejoin="round" />,
-  } as Record<string, React.ReactNode>
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center p-0 sm:p-4">
-      <div className="absolute inset-0 bg-black/70" onClick={onClose} aria-hidden />
-      <div className="relative bg-[#0E1220] w-full sm:max-w-md rounded-t-md sm:rounded-md shadow-2xl z-10 overflow-hidden">
-        {/* Modal header */}
-        <div className="bg-[#080B12] px-6 pt-6 pb-8 text-center relative">
-          <div className="w-12 h-12 bg-white/10 border border-white/20 rounded-md flex items-center justify-center mx-auto mb-4">
-            <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
-              {icons[consultType]}
-            </svg>
-          </div>
-          <h2 className="text-white font-bold text-[18px] mb-0.5">{consultType} with {lawyerName}</h2>
-          <div className="mt-2 inline-flex items-center gap-1.5 bg-[#C9A227]/20 border border-[#C9A227]/30 text-[#C9A227] px-3 py-1 rounded-sm text-body-sm font-semibold">
-            ₹{fee}/min
-          </div>
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center text-white/60 hover:text-white transition-colors duration-150"
-            aria-label="Close"
-          >
-            <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
-              <path d="M18 6L6 18M6 6l12 12" strokeLinecap="round" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Modal body */}
-        <div className="px-6 py-6">
-          <div className="flex items-start gap-3 bg-white/5 border border-white/8 rounded-md p-4 mb-5">
-            <svg className="w-5 h-5 text-[#C9A227] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
-              <rect x="5" y="2" width="14" height="20" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="12" y1="18" x2="12.01" y2="18" strokeLinecap="round" />
-            </svg>
-            <div>
-              <p className="text-body-sm font-semibold text-white mb-1">Available on the LegalX App</p>
-              <p className="text-body-sm text-slate-400 leading-relaxed">
-                All lawyer consultations are booked and conducted through the LegalX mobile app. Payment is processed securely in-app, per minute.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2.5 mb-6">
-            {[
-              'Secure per-minute billing — no advance payment required',
-              'Real-time chat with document and photo sharing',
-              'HD voice and video calls with screen lock protection',
-              'Consultation notes and history saved in-app',
-            ].map((f) => (
-              <div key={f} className="flex items-start gap-2.5">
-                <svg className="w-4 h-4 text-[#C9A227] flex-shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden suppressHydrationWarning>
-                  <path d="M20 6L9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <p className="text-body-sm text-slate-400">{f}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              {
-                label: 'App Store',
-                icon: 'M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z',
-              },
-              {
-                label: 'Google Play',
-                icon: 'M3.18 23.76c.3.17.64.24.99.19l12.48-12.48L13.2 8.03 3.18 23.76zm17.58-11.5L17.6 10.4l-3.33 3.33 3.33 3.33 3.2-1.86a1.5 1.5 0 000-2.94zM2.25 1.13l10.95 10.95L16.54 8.7 3.24.94a1.52 1.52 0 00-1-.19zm.93 1.75l10.04 17.4L9.56 12 3.18 2.88z',
-              },
-            ].map((app) => (
-              <div
-                key={app.label}
-                className="flex items-center gap-2 bg-[#080B12] text-white px-4 py-3 rounded-sm cursor-not-allowed opacity-70 select-none justify-center"
-              >
-                <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                  <path d={app.icon} />
-                </svg>
-                <div>
-                  <div className="text-[9px] opacity-60">Coming soon</div>
-                  <div className="text-[12px] font-semibold">{app.label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Profile component ─────────────────────────────────────────────────────────
 export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
 
   const [activeTab, setActiveTab] = useState<'about' | 'reviews' | 'education'>('about')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [consultType, setConsultType] = useState<'Chat' | 'Voice Call' | 'Video Call'>('Chat')
-  const [consultFee, setConsultFee] = useState(lawyer.fees.chat)
 
-  function openModal(type: 'Chat' | 'Voice Call' | 'Video Call', fee: number) {
+  /**
+   * These buttons used to open a "book this on the LegalX App" modal pointing at
+   * App Store and Play Store links marked coming soon — so the one thing the
+   * page exists for could not be done on the page. They now select the type in
+   * the booking widget and bring it into view, which starts a real call.
+   */
+  const [consultType, setConsultType] = useState<ConsultType>('chat')
+
+  function chooseConsult(type: ConsultType) {
     setConsultType(type)
-    setConsultFee(fee)
-    setModalOpen(true)
+    // The desktop widget lives in a `hidden lg:block` sidebar, so on a phone
+    // there was nothing to scroll to and tapping a consult button did nothing
+    // at all. Each breakpoint gets its own instance; this picks the one that
+    // is actually on screen.
+    const target =
+      document.getElementById('book-consult-mobile')?.offsetParent
+        ? document.getElementById('book-consult-mobile')
+        : document.getElementById('book-consult')
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }
 
   const consultOptions = [
     {
-      type: 'Chat' as const,
+      type: 'chat' as const,
+      label: 'Chat',
       fee: lawyer.fees.chat,
       desc: 'Text consultation',
       iconPath: 'M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2v10z',
     },
     {
-      type: 'Voice Call' as const,
+      type: 'voice' as const,
+      label: 'Voice Call',
       fee: lawyer.fees.voice,
       desc: 'Phone consultation',
       iconPath: 'M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013 7.82 19.79 19.79 0 01-.07 4.18 2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z',
     },
     {
-      type: 'Video Call' as const,
+      type: 'video' as const,
+      label: 'Video Call',
       fee: lawyer.fees.video,
       desc: 'Face-to-face',
       iconPath: 'M15 10l4.553-2.069A1 1 0 0121 8.87V15.13a1 1 0 01-1.447.9L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z',
@@ -172,14 +77,6 @@ export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
 
   return (
     <>
-      <BookFromAppModal
-        open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        consultType={consultType}
-        lawyerName={lawyer.name}
-        fee={consultFee}
-      />
-
       {/* Ground matches the listing page. This profile was previously built on
           the light/dark token set while /talk-to-lawyer is permanently dark, so
           following a card into a profile switched the whole page to white. */}
@@ -201,10 +98,15 @@ export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
               {/* Avatar */}
               <div className="relative flex-shrink-0">
                 <div
-                  className="w-20 h-20 rounded-md flex items-center justify-center"
+                  className="w-20 h-20 rounded-md flex items-center justify-center overflow-hidden"
                   style={{ backgroundColor: lawyer.avatarBg }}
                 >
-                  <span className="text-white font-bold text-2xl">{lawyer.initials}</span>
+                  {lawyer.avatarUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={lawyer.avatarUrl} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-white font-bold text-2xl">{lawyer.initials}</span>
+                  )}
                 </div>
                 {lawyer.online && (
                   <span className="absolute bottom-1 right-1 w-3.5 h-3.5 bg-emerald-400 border-2 border-[#0E1220] rounded-full" />
@@ -261,34 +163,35 @@ export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
               {consultOptions.map((opt, i) => (
                 <button
                   key={opt.type}
-                  onClick={() => openModal(opt.type, opt.fee)}
+                  onClick={() => chooseConsult(opt.type)}
                   className={`group flex flex-col items-center gap-1.5 py-4 px-3 hover:bg-white/5 transition-colors duration-150 ${i < 2 ? 'border-r border-white/8' : ''}`}
                 >
                   <svg className="w-5 h-5 text-slate-500 group-hover:text-[#C9A227] transition-colors duration-150" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
                     <path d={opt.iconPath} strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
-                  <span className="text-body-sm font-semibold text-white">{opt.type}</span>
+                  <span className="text-body-sm font-semibold text-white">{opt.label}</span>
                   <span className="text-[11px] text-slate-500 hidden sm:block">{opt.desc}</span>
                   <span className="text-[#C9A227] font-bold text-[12px]">₹{opt.fee}/min</span>
-                  <span className="text-[11px] text-[#C9A227] group-hover:underline">Book via App →</span>
+                  <span className="text-[11px] text-[#C9A227] group-hover:underline">Start now →</span>
                 </button>
               ))}
             </div>
+
+            {/* Booking widget — phones and tablets.
+                The desktop copy sits in a sticky sidebar that is hidden under
+                lg, so without this there was no widget on a phone at all and
+                the consult buttons above scrolled to nothing. Both instances
+                are controlled by the same consultType, so whichever one is on
+                screen reflects the button that was tapped. */}
+            <div id="book-consult-mobile" className="lg:hidden mt-5">
+              <BookingWidget
+                lawyer={lawyer}
+                type={consultType}
+                onTypeChange={setConsultType}
+              />
+            </div>
           </div>
         </section>
-
-        {/* App notice */}
-        <div className="bg-[#C9A227]/10 border-b border-[#C9A227]/20">
-          <div className="max-w-[1400px] mx-auto px-5 md:px-16 py-3 flex items-center gap-2.5">
-            <svg className="w-4 h-4 text-[#C9A227] flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden suppressHydrationWarning>
-              <rect x="5" y="2" width="14" height="20" rx="2" strokeLinecap="round" strokeLinejoin="round" />
-              <line x1="12" y1="18" x2="12.01" y2="18" strokeLinecap="round" />
-            </svg>
-            <p className="text-body-sm text-white">
-              Consultations with <span className="font-semibold">{lawyer.name}</span> are booked through the <span className="font-semibold">LegalX mobile app</span> — coming soon.
-            </p>
-          </div>
-        </div>
 
         {/* Profile body */}
         <section className="py-8 bg-[#080B12]">
@@ -438,7 +341,13 @@ export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
               {/* Sticky sidebar — desktop only */}
               <div className="hidden lg:block w-72 flex-shrink-0">
                 <div className="sticky top-20 space-y-3">
-                  <BookingWidget lawyer={lawyer} />
+                  <div id="book-consult">
+                    <BookingWidget
+                      lawyer={lawyer}
+                      type={consultType}
+                      onTypeChange={setConsultType}
+                    />
+                  </div>
                   <Link
                     href="/talk-to-lawyer"
                     className="block text-center text-xs text-slate-500 hover:text-[#C9A227] transition-colors py-2"
@@ -454,9 +363,9 @@ export function LawyerProfile({ lawyer }: { lawyer: Lawyer }) {
               {consultOptions.map((opt) => (
                 <button
                   key={opt.type}
-                  onClick={() => openModal(opt.type, opt.fee)}
+                  onClick={() => chooseConsult(opt.type)}
                   className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-sm border transition-colors duration-150 ${
-                    opt.type === 'Chat'
+                    opt.type === consultType
                       ? 'bg-[#C9A227] border-[#C9A227] text-white'
                       : 'border-white/8 text-slate-400 hover:border-[#C9A227] hover:text-[#C9A227]'
                   }`}

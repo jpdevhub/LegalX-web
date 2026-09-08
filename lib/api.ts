@@ -182,6 +182,8 @@ export interface AuthUser {
   firstName: string
   lastName: string
   role: 'client' | 'lawyer' | 'admin'
+  /** Remaining free consultation credit, in paise. Absent on older sessions. */
+  freeCreditPaise?: number
 }
 
 export async function apiLogin(email: string, password: string): Promise<AuthUser> {
@@ -305,6 +307,15 @@ export interface ApiLawyer {
   name: string
   initials: string
   avatarBg: string
+  /**
+   * Endpoint that redirects to a freshly signed photo URL, or null. Not the
+   * stored value: uploads land in a private bucket, so the raw path renders
+   * nothing and the initials fallback is shown instead.
+   *
+   * Optional so the development mock lawyers, which carry no photo, still
+   * satisfy the type without six copies of `avatarUrl: null`.
+   */
+  avatarUrl?: string | null
   barNumber: string
   verified: boolean
   online: boolean
@@ -497,6 +508,23 @@ export async function apiFlagLawyer(
   return apiFetch(`/api/admin/lawyers/${id}/flag`, {
     method: 'POST',
     body: JSON.stringify({ type, reason }),
+  })
+}
+
+/**
+ * Ask a lawyer for something missing from their application.
+ *
+ * Notifies them in the portal and emails the message verbatim. The portal's
+ * button used to call apiFlagLawyer with type 'complaint', which told the
+ * lawyer nothing and recorded a missing document as misconduct.
+ */
+export async function apiRequestLawyerInfo(
+  id: string,
+  message: string
+): Promise<{ sent: boolean; email: string }> {
+  return apiFetch(`/api/admin/lawyers/${id}/request-info`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
   })
 }
 
@@ -1289,11 +1317,18 @@ export interface LawyerSettings {
   verificationEnabled: boolean
   consultationEnabled: boolean
   consultationTypes: ('chat' | 'voice' | 'video')[]
-  consultationFeePerMin: number
+  /**
+   * One rate per channel, because that is what the client is shown and charged.
+   * A single per-minute figure could never express the ₹20 / ₹30 / ₹40 split the
+   * booking widget has always displayed.
+   */
+  feeChat: number
+  feeVoice: number
+  feeVideo: number
   // Payout
   bankAccountName: string | null
-  bankAccountNumber: string | null
   bankIfsc: string | null
+  bankName: string | null
   upiId: string | null
   gstNumber: string | null
   panNumber: string | null
