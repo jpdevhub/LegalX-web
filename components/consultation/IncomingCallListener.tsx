@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { apiGetMe, apiFetch } from '@/lib/api'
+import { apiGetMe, apiFetch, sseUrl } from '@/lib/api'
 
 /**
  * Rings the lawyer wherever they are on the site.
@@ -70,7 +70,7 @@ export function IncomingCallListener() {
 
     const connect = () => {
       if (closed) return
-      const es = new EventSource('/api/notifications/stream', { withCredentials: true })
+      const es = new EventSource(sseUrl('/api/notifications/stream'), { withCredentials: true })
       esRef.current = es
 
       es.addEventListener('open', () => { attempts = 0 })

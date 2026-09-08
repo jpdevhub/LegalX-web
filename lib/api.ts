@@ -99,6 +99,24 @@ function refreshSession(): Promise<boolean> {
   return refreshPromise
 }
 
+/**
+ * Where to open a Server-Sent Events stream.
+ *
+ * Deliberately NOT the /api rewrite that every other call uses. Next.js
+ * rewrites are proxied through Vercel's function layer, which buffers the
+ * response body — fine for a JSON reply that ends, fatal for a stream that is
+ * meant to stay open forever. The lawyer's browser held a connection that
+ * looked healthy and delivered nothing, which is what made incoming calls and
+ * the notification bell silently dead in production while working locally.
+ *
+ * The backend allows this origin with credentials, and its host is already in
+ * the CSP connect-src, so the cookie still goes with it.
+ */
+export function sseUrl(path: string): string {
+  const base = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, '') ?? ''
+  return `${base}${path}`
+}
+
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
   const { skipCredentials, skipCsrf, ...fetchOpts } = options
   const isMutation = ['POST', 'PATCH', 'PUT', 'DELETE'].includes((fetchOpts.method || 'GET').toUpperCase())

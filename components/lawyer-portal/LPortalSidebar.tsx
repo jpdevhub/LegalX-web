@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { apiLogout, type AuthUser } from '@/lib/api'
@@ -165,6 +166,12 @@ export function LPortalSidebar({ user, isOnline, onToggleOnline }: Props) {
         </div>
         <div className="flex items-center gap-3">
           <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+          {/*
+            The desktop top bar is `hidden lg:flex`, so on a phone there was no
+            bell anywhere — the sidebar entry had been moved up to a bar the
+            mobile layout never renders.
+          */}
+          <NotificationBell />
           <button onClick={() => setMobileOpen(v => !v)} className="text-slate-300 hover:text-white p-1">
             {mobileOpen
               ? <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><line strokeLinecap="round" x1="18" y1="6" x2="6" y2="18"/><line strokeLinecap="round" x1="6" y1="6" x2="18" y2="18"/></svg>
