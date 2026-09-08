@@ -26,9 +26,10 @@
  */
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ConsultIcon } from '@/components/ui/ConsultIcons'
-import { apiFetch, apiGetMe } from '@/lib/api'
+import { apiFetch, apiGetMe, apiGetWallet } from '@/lib/api'
 import type { ApiLawyer } from '@/lib/api'
 
 const CONSULT_TYPES = [
@@ -54,11 +55,13 @@ export function BookingWidget({
   // The real balance, not a fixed "₹100". A client who has spent most of it
   // was previously told they had the full grant, then handed a failure when
   // the server disagreed.
+  // Spendable balance: the free grant plus anything topped up. Reading only
+  // the grant told a client who had just paid that they had nothing.
   const [creditPaise, setCreditPaise] = useState<number | null>(null)
   useEffect(() => {
     let cancelled = false
-    apiGetMe()
-      .then(me => { if (!cancelled && typeof me?.freeCreditPaise === 'number') setCreditPaise(me.freeCreditPaise) })
+    apiGetWallet()
+      .then(w => { if (!cancelled) setCreditPaise(w.spendablePaise) })
       .catch(() => { /* signed out — the button routes to login anyway */ })
     return () => { cancelled = true }
   }, [])
@@ -109,7 +112,7 @@ export function BookingWidget({
       // attached, so there is no second step and no payment.
       const initiateData = await apiFetch<{
         consultationId: string
-        fundedBy: 'credits' | 'razorpay'
+        fundedBy: 'balance' | 'razorpay'
         channelName?: string
         agoraAppId?: string
         authToken?: string
@@ -122,7 +125,7 @@ export function BookingWidget({
         body: JSON.stringify({ lawyerId: lawyer.slug, type, maxMinutes: 30 }),
       })
 
-      if (initiateData.fundedBy === 'credits') {
+      if (initiateData.fundedBy === 'balance') {
         router.push(
           `/consultation/${initiateData.consultationId}` +
           `?channel=${initiateData.channelName}&token=${initiateData.authToken}` +
@@ -254,7 +257,7 @@ export function BookingWidget({
           <span className="text-white">Per minute, exact usage</span>
         </div>
         <div className="flex justify-between text-sm">
-          <span className="text-slate-400">Free credit</span>
+          <span className="text-slate-400">Balance</span>
           <span className={creditMinutes !== null && creditMinutes === 0 ? 'text-amber-400' : 'text-white'}>
             {creditPaise === null ? '—' : `₹${(creditPaise / 100).toFixed(2).replace(/\.00$/, '')}`}
           </span>
@@ -263,8 +266,8 @@ export function BookingWidget({
           {creditPaise === null
             ? 'Nothing is charged to a card, and a call the lawyer does not answer costs nothing.'
             : (creditMinutes ?? 0) > 0
-              ? `That covers about ${creditMinutes} minute${creditMinutes === 1 ? '' : 's'} at this rate. Nothing is charged to a card, and a call the lawyer does not answer costs nothing.`
-              : `That is less than one minute at ₹${fee}/min, so this call cannot start yet.`}
+              ? `That covers about ${creditMinutes} minute${creditMinutes === 1 ? '' : 's'} at this rate. Charged per minute, and a call the lawyer does not answer costs nothing.`
+              : `That is less than one minute at ₹${fee}/min. Top up your wallet to start.`}
         </p>
       </div>
 
@@ -276,12 +279,16 @@ export function BookingWidget({
       )}
       {step === 'payments-paused' && (
         <div className="mx-5 mt-4 p-4 bg-[#C9A227]/10 border border-[#C9A227]/25 rounded-sm">
-          <p className="text-sm font-semibold text-[#D4AF37] mb-1">Free credit used up</p>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            {errMsg || 'Your free consultation credit is finished.'} Paid calls are on hold
-            while we move to a new payment provider — back shortly. For anything urgent,
-            message us on WhatsApp.
+          <p className="text-sm font-semibold text-[#D4AF37] mb-1">Not enough balance</p>
+          <p className="text-xs text-slate-400 leading-relaxed mb-3">
+            {errMsg || 'Your balance will not cover a minute at this rate.'}
           </p>
+          <Link
+            href="/wallet"
+            className="inline-block px-4 h-9 leading-9 rounded-sm bg-[#C9A227] hover:bg-[#D4AF37] text-[#0A0D14] font-bold text-xs transition-colors"
+          >
+            Add money to wallet
+          </Link>
         </div>
       )}
       {step === 'unavailable' && (
@@ -313,7 +320,7 @@ export function BookingWidget({
         </button>
 
         <p className="text-center text-[11px] text-slate-600 mt-3">
-          Charged per minute from your free credit · Nothing held on a card
+          Charged per minute · Free credit is used first
         </p>
       </div>
     </div>

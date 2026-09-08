@@ -186,6 +186,8 @@ export function Header() {
                         ) : user.role !== 'admin' ? (
                           <>
                             <DropdownItem href="/talk-to-lawyer" onClick={() => setUserMenuOpen(false)} icon={<ClockIcon />}>Talk to a Lawyer</DropdownItem>
+                            <DropdownItem href="/wallet" onClick={() => setUserMenuOpen(false)} icon={<WalletIcon />}>Wallet</DropdownItem>
+                            <DropdownItem href="/notifications" onClick={() => setUserMenuOpen(false)} icon={<BellDropIcon />}>Notifications</DropdownItem>
                             <DropdownItem href="/documents" onClick={() => setUserMenuOpen(false)} icon={<FileIcon />}>Documents</DropdownItem>
                           </>
                         ) : null}
@@ -387,6 +389,25 @@ function LogoutIcon({ className }: { className?: string }) {
 function GridIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
 }
+function WalletIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" suppressHydrationWarning>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 12V7H5a2 2 0 010-4h14v4" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 5v14a2 2 0 002 2h16v-5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 12a2 2 0 000 4h4v-4h-4z" />
+    </svg>
+  )
+}
+
+function BellDropIcon() {
+  return (
+    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8" suppressHydrationWarning>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.73 21a2 2 0 01-3.46 0" />
+    </svg>
+  )
+}
+
 function ClockIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" suppressHydrationWarning><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" strokeLinecap="round" /></svg>
 }
