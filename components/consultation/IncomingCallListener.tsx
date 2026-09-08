@@ -77,8 +77,21 @@ export function IncomingCallListener() {
     let attempts = 0
     let closed = false
 
-    const connect = () => {
+    /**
+     * Refresh the session before every connect.
+     *
+     * The stream authenticates from the access-token cookie, which expires
+     * after an hour. Ordinary calls survive that because apiFetch catches the
+     * 401, spends the refresh cookie and replays — but EventSource has no such
+     * retry: it reconnects with the same expired cookie and 401s again, for as
+     * long as the tab stays open. apiGetMe() runs that refresh, so the stream
+     * reconnects with a credential that actually works instead of looping.
+     */
+    const connect = async () => {
       if (closed) return
+      try { await apiGetMe() } catch { /* still worth attempting the stream */ }
+      if (closed) return
+
       const es = new EventSource(sseUrl('/api/notifications/stream'), { withCredentials: true })
       esRef.current = es
 
@@ -98,11 +111,11 @@ export function IncomingCallListener() {
         es.close()
         if (closed) return
         attempts += 1
-        retry = setTimeout(connect, Math.min(2000 * 2 ** (attempts - 1), 60_000))
+        retry = setTimeout(() => { void connect() }, Math.min(2000 * 2 ** (attempts - 1), 60_000))
       }
     }
 
-    connect()
+    void connect()
     return () => {
       closed = true
       esRef.current?.close()

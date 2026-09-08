@@ -7,6 +7,7 @@ import {
   apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead,
   type AppNotification,
   sseUrl,
+  apiGetMe,
 } from '@/lib/api'
 
 /**
@@ -83,8 +84,19 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
     let attempts = 0
     let closed = false
 
-    const connect = () => {
+    /**
+     * Refresh the session before connecting.
+     *
+     * The stream authenticates from the access-token cookie, which expires
+     * after an hour. apiFetch survives that by catching the 401, spending the
+     * refresh cookie and replaying; EventSource cannot, so it reconnects with
+     * the same expired cookie and 401s forever while the tab stays open.
+     */
+    const connect = async () => {
       if (closed) return
+      try { await apiGetMe() } catch { /* still worth attempting the stream */ }
+      if (closed) return
+
       source = new EventSource(sseUrl('/api/notifications/stream'), { withCredentials: true })
 
       source.addEventListener('open', () => { attempts = 0 })
@@ -120,11 +132,11 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
         attempts += 1
         // 2s, 4s, 8s … capped at 60s.
         const delay = Math.min(2000 * 2 ** (attempts - 1), 60_000)
-        retry = setTimeout(connect, delay)
+        retry = setTimeout(() => { void connect() }, delay)
       })
     }
 
-    connect()
+    void connect()
     return () => {
       closed = true
       source?.close()
