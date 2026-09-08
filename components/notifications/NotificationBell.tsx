@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead,
   type AppNotification,
+  sseUrl,
 } from '@/lib/api'
 
 /**
@@ -84,7 +85,7 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
 
     const connect = () => {
       if (closed) return
-      source = new EventSource('/api/notifications/stream', { withCredentials: true })
+      source = new EventSource(sseUrl('/api/notifications/stream'), { withCredentials: true })
 
       source.addEventListener('open', () => { attempts = 0 })
 
