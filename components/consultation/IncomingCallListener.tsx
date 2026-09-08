@@ -37,6 +37,69 @@ const TYPE_LABEL: Record<string, string> = {
 
 const CALL_TIMEOUT = 20
 
+/**
+ * A ring tone, synthesised rather than shipped.
+ *
+ * Two alternating tones on a gain envelope, which is roughly what a phone
+ * sounds like, in a few lines and with no audio file to serve, cache or have
+ * blocked. It also sidesteps the usual autoplay trap: an <audio> element with a
+ * src is subject to media autoplay policy, while an AudioContext resumed inside
+ * a page the user has already interacted with generally is not.
+ *
+ * Returns a stop function. Silent and harmless if the browser refuses.
+ */
+function startRinging(): () => void {
+  let ctx: AudioContext | null = null
+  let timer: ReturnType<typeof setInterval> | null = null
+  let stopped = false
+
+  try {
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext
+    if (!Ctor) return () => {}
+    ctx = new Ctor()
+    void ctx.resume()
+  } catch {
+    return () => {}
+  }
+
+  const beep = (frequency: number, at: number, duration: number) => {
+    if (!ctx || stopped) return
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = frequency
+    // Ramped rather than switched: a square edge on a gain node is an audible
+    // click, and two of those a second is worse than no ring at all.
+    gain.gain.setValueAtTime(0, ctx.currentTime + at)
+    gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + at + 0.02)
+    gain.gain.setValueAtTime(0.18, ctx.currentTime + at + duration - 0.03)
+    gain.gain.linearRampToValueAtTime(0, ctx.currentTime + at + duration)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(ctx.currentTime + at)
+    osc.stop(ctx.currentTime + at + duration)
+  }
+
+  const pattern = () => {
+    beep(880, 0, 0.4)
+    beep(660, 0.5, 0.4)
+    // Handsets buzz as well as ring. Ignored where unsupported.
+    try { navigator.vibrate?.([400, 200, 400]) } catch { /* not supported */ }
+  }
+
+  pattern()
+  timer = setInterval(pattern, 1800)
+
+  return () => {
+    stopped = true
+    if (timer) clearInterval(timer)
+    try { navigator.vibrate?.(0) } catch { /* not supported */ }
+    try { void ctx?.close() } catch { /* already closed */ }
+  }
+}
+
+
 export function IncomingCallListener() {
   const router = useRouter()
   const [isLawyer, setIsLawyer] = useState(false)
@@ -189,6 +252,11 @@ function Ringer({
   call, onAccept, onDecline,
 }: { call: IncomingCall; onAccept: () => void; onDecline: () => void }) {
   const [remaining, setRemaining] = useState(CALL_TIMEOUT)
+
+  // Rings for exactly as long as the banner is on screen. Tying the sound to
+  // the lifetime of the thing it belongs to means it cannot outlive an answered
+  // call or keep going after a decline.
+  useEffect(() => startRinging(), [])
 
   // onDecline changes identity every render through its `call` dependency, so
   // the timer reads it from a ref instead. Listing it as a dependency would

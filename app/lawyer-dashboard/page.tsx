@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { PushToggle } from '@/components/lawyer-portal/PushToggle'
 import Link from 'next/link'
 import { apiGetLawyerMe, apiGetPortalConsultations, type LawyerMe, type PortalConsultation } from '@/lib/api'
 
@@ -119,6 +120,12 @@ export default function LawyerDashboardPage() {
       </div>
 
       {/* Today's consultations */}
+      {/* Sits above the fold on the page a lawyer lands on, because a lawyer who
+          never sees this can only be reached with a tab open. */}
+      <div className="mb-6">
+        <PushToggle />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-[#0E1220] border border-white/8 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
