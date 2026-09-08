@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useRefreshOnFocus } from '@/hooks/useRefreshOnFocus'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -161,6 +162,10 @@ export default function ConsultationsPage() {
   }, [])
 
   useEffect(() => { load(activeTab) }, [activeTab, load])
+
+  // A lawyer coming back from a call left this page mounted, so it kept showing
+  // the list from before the consultation happened.
+  useRefreshOnFocus(useCallback(() => { load(activeTab) }, [activeTab, load]))
 
   const handleComplete = useCallback(async (id: string) => {
     await apiMarkConsultationComplete(id, '')

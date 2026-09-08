@@ -354,6 +354,16 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
     return 'Check your connection, then try again.'
   })()
 
+  /**
+   * Where "back" goes after the call.
+   *
+   * Every exit sent everyone to /talk-to-lawyer — the client-facing directory —
+   * so a lawyer who hung up landed on a page listing lawyers to hire, outside
+   * their own portal. Each side returns to the place they came from.
+   */
+  const exitHref = viewerRole === 'lawyer' ? '/lawyer-dashboard/consultations' : '/talk-to-lawyer'
+  const exitLabel = viewerRole === 'lawyer' ? 'Back to consultations' : 'Back to lawyers'
+
   const callRunning = remoteUsers.length > 0
   useEffect(() => {
     if (callRunning) timer.start()
@@ -414,10 +424,10 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
             Total: {timer.seconds < 60 ? `${timer.seconds} seconds` : `${Math.floor(timer.seconds / 60)} min ${timer.seconds % 60} sec`}
           </p>
           <button
-            onClick={() => router.push('/talk-to-lawyer')}
+            onClick={() => router.push(exitHref)}
             className="w-full h-11 rounded-xl bg-[#C9A227] text-[#060810] font-semibold text-sm hover:bg-[#E5C050] transition-colors"
           >
-            Back to Lawyers
+            {exitLabel}
           </button>
         </motion.div>
       </div>
@@ -447,10 +457,10 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
             Retry
           </button>
           <button
-            onClick={() => router.push('/talk-to-lawyer')}
+            onClick={() => router.push(exitHref)}
             className="px-5 py-2.5 rounded-lg bg-white/10 text-white text-sm"
           >
-            Go Back
+            Go back
           </button>
         </div>
       </div>

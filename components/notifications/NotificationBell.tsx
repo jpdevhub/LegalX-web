@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   apiGetNotifications, apiMarkNotificationRead, apiMarkAllNotificationsRead,
@@ -173,7 +174,15 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
     try { await apiMarkAllNotificationsRead() } catch { /* optimistic */ }
   }
 
+  const pathname = usePathname()
   const isSidebar = variant === 'sidebar'
+  // The bell is mounted in all three portals; the history lives at a different
+  // path in each, so it is chosen from where the bell actually is.
+  const allHref = pathname.startsWith('/admin')
+    ? '/admin/notifications'
+    : pathname.startsWith('/lawyer-dashboard')
+      ? '/lawyer-dashboard/notifications'
+      : '/notifications'
 
   return (
     <>
@@ -217,8 +226,18 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -6, scale: 0.98 }}
               transition={{ duration: 0.15 }}
-              className={`absolute z-50 w-[min(360px,calc(100vw-32px))] max-h-[420px] overflow-hidden flex flex-col rounded-xl bg-[#111318] border border-white/10 shadow-2xl ${
-                isSidebar ? 'left-0 bottom-full mb-2' : 'right-0 mt-2'
+              /*
+                Anchored to the viewport on phones, to the bell on wider screens.
+                A 360px panel right-aligned to a bell that sits near the middle
+                of a narrow header extends past the left edge of the screen and
+                gets clipped — which is exactly what it did in the mobile
+                portal. Pinning it to both edges below sm makes that impossible
+                whatever the header layout does.
+              */
+              className={`z-50 max-h-[420px] overflow-hidden flex flex-col rounded-xl bg-[#111318] border border-white/10 shadow-2xl ${
+                isSidebar
+                  ? 'absolute left-0 bottom-full mb-2 w-[min(360px,calc(100vw-32px))]'
+                  : 'fixed left-3 right-3 top-16 w-auto sm:absolute sm:left-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-[360px]'
               }`}
             >
               <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
@@ -284,6 +303,19 @@ export function NotificationBell({ variant = 'header' }: { variant?: 'header' | 
                   </ul>
                 )}
               </div>
+
+              {/*
+                The panel only ever holds the newest few. Without a way through
+                to the full list, anything you did not catch in the moment was
+                effectively gone — even though every row is kept.
+              */}
+              <Link
+                href={allHref}
+                onClick={() => setOpen(false)}
+                className="shrink-0 block px-4 py-3 text-center text-xs font-semibold text-[#C9A227] hover:text-white hover:bg-white/[0.03] border-t border-white/8 transition-colors"
+              >
+                View all notifications
+              </Link>
             </motion.div>
           )}
         </AnimatePresence>

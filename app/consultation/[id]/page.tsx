@@ -7,6 +7,8 @@ import { motion } from 'framer-motion'
 import { apiGetConsultationToken, apiSubmitReview, type AgoraSession } from '@/lib/api'
 
 // Agora must be loaded client-side only (no SSR support)
+const ChatRoom = dynamic(() => import('@/components/consultation/ChatRoom'), { ssr: false })
+
 const VideoRoom = dynamic(() => import('@/components/consultation/VideoRoom'), {
   ssr: false,
   loading: () => (
@@ -80,17 +82,29 @@ export default function ConsultationPage() {
         <h2 className="text-white font-semibold mb-2">Can’t join this session</h2>
         <p className="text-slate-400 text-sm mb-5">{error ?? 'This consultation is unavailable.'}</p>
         <button
-          onClick={() => router.push('/talk-to-lawyer')}
+          onClick={() => router.push(session?.role === 'lawyer' ? '/lawyer-dashboard/consultations' : '/talk-to-lawyer')}
           className="px-5 py-2.5 rounded-lg bg-[#C9A227] text-[#060810] font-semibold text-sm"
         >
-          Back to Lawyers
+          {session?.role === 'lawyer' ? 'Back to consultations' : 'Back to lawyers'}
         </button>
       </Shell>
     )
   }
 
   if (showReview && session.counterpartId) {
-    return <ReviewPrompt lawyerId={session.counterpartId} onDone={() => router.push('/')} />
+    return <ReviewPrompt lawyerId={session.counterpartId} onDone={() => router.push('/talk-to-lawyer')} />
+  }
+
+  // A text consultation is not a call. It opened the video room until now,
+  // which is why chat showed a phone icon and waited for a media track that was
+  // never coming.
+  if (session.type === 'chat') {
+    return (
+      <ChatRoom
+        consultationId={id}
+        viewerRole={session.role}
+      />
+    )
   }
 
   return (

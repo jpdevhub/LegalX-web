@@ -1058,6 +1058,31 @@ export async function apiIngestShort(input: {
 
 // ── Notifications ─────────────────────────────────────────────────────────────
 
+// ── Consultation chat ─────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  id: string
+  sender_id: string
+  content: string
+  created_at: string
+}
+
+export async function apiGetMessages(
+  consultationId: string
+): Promise<{ conversationId: string; messages: ChatMessage[]; selfId: string }> {
+  return apiFetch(`/api/consultations/${consultationId}/messages`)
+}
+
+export async function apiSendMessage(
+  consultationId: string,
+  content: string
+): Promise<{ message: ChatMessage }> {
+  return apiFetch(`/api/consultations/${consultationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  })
+}
+
 export interface AppNotification {
   id: string
   title: string
