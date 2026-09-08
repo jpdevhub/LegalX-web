@@ -1,17 +1,28 @@
 'use client'
 
 /**
- * BookingWidget — Test Mode
- * 
- * TEST MODE ACTIVE: Razorpay payment is bypassed.
- * The widget simulates the full booking flow (initiate → token → room redirect)
- * without requiring a real payment. Set TEST_MODE = false before production.
- * 
- * Full flow when TEST_MODE = false:
- *   1. POST /api/consultations/initiate → Razorpay order
- *   2. Razorpay checkout → payment authorized
- *   3. POST /api/consultations/token → Agora token
- *   4. Redirect to /consultation/[id]?channel=...&token=...&uid=...&appId=...
+ * BookingWidget — starts a consultation.
+ *
+ * The flow, once the client presses the button:
+ *   1. POST /api/consultations/initiate
+ *      The server checks the client's free credit first. If it covers at least
+ *      one minute the call is funded from it and the response already carries
+ *      the Agora token — no gateway is involved and there is nothing to pay.
+ *   2. The same request rings the lawyer: it writes consultation_notifications,
+ *      which Supabase Realtime relays through the backend's SSE stream to their
+ *      dashboard, where they have 20 seconds to answer.
+ *   3. The client goes straight to /consultation/[id] and waits in the room.
+ *      Audio and video run over Agora's network, never through our server.
+ *   4. When the channel empties, Agora's webhook settles the call against the
+ *      measured duration.
+ *
+ * Out of credit, the server answers PAYMENTS_MAINTENANCE while Razorpay is off
+ * and PhonePe is being built. The Razorpay branch below is kept rather than
+ * deleted — it is the only pre-authorise-and-void implementation we have.
+ *
+ * This replaces a TEST_MODE flag that faked a payment id to reach the room.
+ * Free credit does the same job without a live-payments switch sitting in the
+ * middle of the feature.
  */
 
 import { useState, useCallback } from 'react'
@@ -20,9 +31,6 @@ import { ConsultIcon } from '@/components/ui/ConsultIcons'
 import { apiFetch, apiGetMe } from '@/lib/api'
 import type { ApiLawyer } from '@/lib/api'
 
-// ── TOGGLE THIS TO false IN PRODUCTION ───────────────────────────────────────
-const TEST_MODE = true
-
 const CONSULT_TYPES = [
   { key: 'chat',  label: 'Chat',  desc: 'Text messages + document sharing' },
   { key: 'voice', label: 'Voice', desc: 'Crystal-clear audio call' },
@@ -30,7 +38,7 @@ const CONSULT_TYPES = [
 ] as const
 
 type ConsultType = typeof CONSULT_TYPES[number]['key']
-type Step = 'idle' | 'loading' | 'unavailable' | 'error'
+type Step = 'idle' | 'loading' | 'unavailable' | 'error' | 'payments-paused'
 
 export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
   const router = useRouter()
@@ -68,52 +76,36 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
         return
       }
 
-      if (TEST_MODE) {
-        // ── TEST MODE: bypass Razorpay, go straight to token ─────────────
-        console.info('[BookingWidget] TEST MODE — skipping Razorpay payment')
-
-        const initiateData = await apiFetch<{
-          consultationId: string
-          razorpayOrderId: string
-          amount: number
-        }>('/api/consultations/initiate', {
-          method: 'POST',
-          body: JSON.stringify({ lawyerId: lawyer.slug, type, maxMinutes: 30 }),
-        })
-
-        // In test mode use a fake payment ID — backend will still create the DB row
-        // but skip the Razorpay verification step (requires test_mode flag on backend)
-        const tokenData = await apiFetch<{
-          consultationId: string
-          channelName: string
-          agoraAppId: string
-          authToken: string
-          uid: number
-        }>('/api/consultations/token', {
-          method: 'POST',
-          body: JSON.stringify({
-            consultationId: initiateData.consultationId,
-            razorpayPaymentId: 'test_payment_' + Date.now(),
-          }),
-        })
-
-        router.push(
-          `/consultation/${tokenData.consultationId}?channel=${tokenData.channelName}&token=${tokenData.authToken}&uid=${tokenData.uid}&appId=${tokenData.agoraAppId}&type=${type}`
-        )
-        return
-      }
-
-      // ── PRODUCTION: real Razorpay flow ──────────────────────────────────
+      // ── Start the call ──────────────────────────────────────────────────
+      // One request: it decides how the call is funded, creates the row and
+      // rings the lawyer. A credit-funded call comes back with its token
+      // attached, so there is no second step and no payment.
       const initiateData = await apiFetch<{
         consultationId: string
-        razorpayOrderId: string
-        amount: number
-        currency: string
+        fundedBy: 'credits' | 'razorpay'
+        channelName?: string
+        agoraAppId?: string
+        authToken?: string
+        uid?: number
+        razorpayOrderId?: string
+        amount?: number
+        currency?: string
       }>('/api/consultations/initiate', {
         method: 'POST',
         body: JSON.stringify({ lawyerId: lawyer.slug, type, maxMinutes: 30 }),
       })
 
+      if (initiateData.fundedBy === 'credits') {
+        router.push(
+          `/consultation/${initiateData.consultationId}` +
+          `?channel=${initiateData.channelName}&token=${initiateData.authToken}` +
+          `&uid=${initiateData.uid}&appId=${initiateData.agoraAppId}&type=${type}`
+        )
+        return
+      }
+
+      // ── Paid: Razorpay pre-authorisation ────────────────────────────────
+      // Only reachable when RAZORPAY_MAINTENANCE is off on the server.
       // Dynamically load Razorpay script
       await new Promise<void>((resolve, reject) => {
         if ((window as any).Razorpay) { resolve(); return }
@@ -165,6 +157,10 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
       const msg = err?.message || 'Something went wrong. Please try again.'
       if (msg === 'Payment cancelled') {
         setStep('idle')
+      } else if (/on hold while we switch payment providers/i.test(msg)) {
+        // Out of free credit and the gateway is off. Not an error the client
+        // can do anything about, so it reads as a notice rather than a failure.
+        setStep('payments-paused')
       } else {
         setErrMsg(msg)
         setStep('error')
@@ -178,11 +174,9 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
       <div className="px-6 pt-6 pb-4 border-b border-white/8">
         <div className="flex items-center justify-between mb-1">
           <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Consult Now</p>
-          {TEST_MODE && (
-            <span className="text-[10px] font-bold bg-amber-400/15 text-amber-400 border border-amber-400/25 px-2 py-0.5 rounded-full uppercase tracking-wide">
-              Test Mode
-            </span>
-          )}
+          <span className="text-[10px] font-bold bg-emerald-400/15 text-emerald-400 border border-emerald-400/25 px-2 py-0.5 rounded-full uppercase tracking-wide">
+            Free credit
+          </span>
         </div>
         <p className="text-white font-semibold text-lg">{lawyer.name}</p>
         <div className="flex items-center gap-2 mt-1">
@@ -246,6 +240,16 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
           {errMsg}
         </div>
       )}
+      {step === 'payments-paused' && (
+        <div className="mx-5 mt-4 p-4 bg-[#C9A227]/10 border border-[#C9A227]/25 rounded-sm">
+          <p className="text-sm font-semibold text-[#D4AF37] mb-1">Paid consultations — coming soon</p>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            You have used your free consultation credit, and paid calls are on hold while we
+            move to a new payment provider. Hold tight — this is back shortly. For anything
+            urgent, message us on WhatsApp.
+          </p>
+        </div>
+      )}
       {step === 'unavailable' && (
         <div className="mx-5 mt-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-sm text-sm text-amber-300">
           <p className="font-semibold mb-1">Lawyer is currently offline</p>
@@ -270,7 +274,6 @@ export function BookingWidget({ lawyer }: { lawyer: ApiLawyer }) {
           ) : (
             <>
               Start {CONSULT_TYPES.find((t) => t.key === type)?.label}
-              {TEST_MODE && ' (Test)'}
             </>
           )}
         </button>
