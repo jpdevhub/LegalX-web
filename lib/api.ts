@@ -102,19 +102,20 @@ function refreshSession(): Promise<boolean> {
 /**
  * Where to open a Server-Sent Events stream.
  *
- * Deliberately NOT the /api rewrite that every other call uses. Next.js
- * rewrites are proxied through Vercel's function layer, which buffers the
- * response body — fine for a JSON reply that ends, fatal for a stream that is
- * meant to stay open forever. The lawyer's browser held a connection that
- * looked healthy and delivered nothing, which is what made incoming calls and
- * the notification bell silently dead in production while working locally.
+ * Same-origin, through the /api rewrite, exactly like every other call — and
+ * that is load-bearing. The session cookie is HttpOnly and was set on the
+ * frontend's own origin, because login is proxied through this same rewrite.
+ * Pointing EventSource straight at the backend host therefore sends no cookie
+ * at all, and every connection comes back 401. That was tried, and the network
+ * panel filled with 401 event-stream rows.
  *
- * The backend allows this origin with credentials, and its host is already in
- * the CSP connect-src, so the cookie still goes with it.
+ * EventSource cannot set an Authorization header, so a cross-origin stream
+ * would need a short-lived token in the query string. Until there is a reason
+ * to build that, the stream stays same-origin and the polling fallback in
+ * IncomingCallListener covers the cases where it does not deliver.
  */
 export function sseUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_BACKEND_URL?.replace(/\/+$/, '') ?? ''
-  return `${base}${path}`
+  return path
 }
 
 export async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T> {
