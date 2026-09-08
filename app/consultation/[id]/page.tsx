@@ -103,6 +103,8 @@ export default function ConsultationPage() {
       <ChatRoom
         consultationId={id}
         viewerRole={session.role}
+        counterpartName={session.counterpartName ?? undefined}
+        feePerMinute={session.feePerMinute ?? undefined}
       />
     )
   }

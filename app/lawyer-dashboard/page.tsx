@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRefreshOnFocus } from '@/hooks/useRefreshOnFocus'
 import { PushToggle } from '@/components/lawyer-portal/PushToggle'
 import Link from 'next/link'
-import { apiGetLawyerMe, apiGetPortalConsultations, type LawyerMe, type PortalConsultation } from '@/lib/api'
+import { apiGetLawyerMe, apiGetPortalConsultations, apiGetLawyerStats, type LawyerMe, type LawyerStats, type PortalConsultation } from '@/lib/api'
 
 function StatCard({ label, value, sub, color = '#C9A227' }: { label: string; value: string | number; sub?: string; color?: string }) {
   return (
@@ -48,16 +48,39 @@ function ConsultRow({ c }: { c: PortalConsultation }) {
 export default function LawyerDashboardPage() {
   const [lm, setLm]     = useState<LawyerMe | null>(null)
   const [calls, setCalls] = useState<PortalConsultation[]>([])
+  const [stats, setStats] = useState<LawyerStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const [l, c] = await Promise.all([apiGetLawyerMe(), apiGetPortalConsultations('upcoming')])
+    const [l, c, st] = await Promise.all([
+      apiGetLawyerMe(),
+      apiGetPortalConsultations('upcoming'),
+      apiGetLawyerStats(),
+    ])
     setLm(l)
     setCalls(c.slice(0, 6))
+    setStats(st)
     setLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
+  // Guarded async inside the effect, so nothing is set synchronously as it runs
+  // and nothing is set after unmount. `load` stays for the focus refresh below.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const [l, c, st] = await Promise.all([
+        apiGetLawyerMe(),
+        apiGetPortalConsultations('upcoming'),
+        apiGetLawyerStats(),
+      ])
+      if (cancelled) return
+      setLm(l)
+      setCalls(c.slice(0, 6))
+      setStats(st)
+      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [])
 
   // The dashboard fetched once on mount, so a lawyer returning from a call was
   // shown the counts from before it — the consultation was recorded, the page
@@ -120,10 +143,29 @@ export default function LawyerDashboardPage() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Consultations this month" value={profile?.cases_handled ?? 0} sub="Total handled" />
-        <StatCard label="Avg Rating" value={profile?.avg_rating ? `${profile.avg_rating}★` : '—'} sub={`${profile?.total_reviews ?? 0} reviews`} color="#C9A227" />
-        <StatCard label="Pending Payout" value="—" sub="Next cycle" color="#34d399" />
-        <StatCard label="Documents" value="—" sub="This month" color="#a78bfa" />
+        <StatCard
+          label="Consultations this month"
+          value={stats?.consultationsThisMonth ?? 0}
+          sub={`${stats?.totalHandled ?? 0} handled in total`}
+        />
+        <StatCard
+          label="Avg Rating"
+          value={stats?.avgRating ? `${stats.avgRating}★` : '—'}
+          sub={`${stats?.reviewCount ?? 0} review${stats?.reviewCount === 1 ? '' : 's'}`}
+          color="#C9A227"
+        />
+        <StatCard
+          label="Earned this month"
+          value={stats ? `₹${stats.earnedThisMonth}` : '—'}
+          sub="Before commission"
+          color="#34d399"
+        />
+        <StatCard
+          label="Minutes this month"
+          value={stats?.minutesThisMonth ?? 0}
+          sub="Across all consultations"
+          color="#a78bfa"
+        />
       </div>
 
       {/* Today's consultations */}
