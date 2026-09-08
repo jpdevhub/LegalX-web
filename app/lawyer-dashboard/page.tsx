@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useRefreshOnFocus } from '@/hooks/useRefreshOnFocus'
 import { PushToggle } from '@/components/lawyer-portal/PushToggle'
 import Link from 'next/link'
 import { apiGetLawyerMe, apiGetPortalConsultations, type LawyerMe, type PortalConsultation } from '@/lib/api'
@@ -49,13 +50,19 @@ export default function LawyerDashboardPage() {
   const [calls, setCalls] = useState<PortalConsultation[]>([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    Promise.all([apiGetLawyerMe(), apiGetPortalConsultations('upcoming')]).then(([l, c]) => {
-      setLm(l)
-      setCalls(c.slice(0, 6))
-      setLoading(false)
-    })
+  const load = useCallback(async () => {
+    const [l, c] = await Promise.all([apiGetLawyerMe(), apiGetPortalConsultations('upcoming')])
+    setLm(l)
+    setCalls(c.slice(0, 6))
+    setLoading(false)
   }, [])
+
+  useEffect(() => { load() }, [load])
+
+  // The dashboard fetched once on mount, so a lawyer returning from a call was
+  // shown the counts from before it — the consultation was recorded, the page
+  // simply never asked again.
+  useRefreshOnFocus(load)
 
   // Verification gate
   if (!loading && lm && lm.verification_status !== 'verified') {
