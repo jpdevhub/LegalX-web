@@ -70,6 +70,7 @@ export default function ChatRoom({
   const [sending, setSending] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [ended, setEnded] = useState(false)
+  const [closedByOther, setClosedByOther] = useState(false)
   const [elapsed, setElapsed] = useState(0)
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
@@ -85,6 +86,9 @@ export default function ChatRoom({
         const res = await apiGetMessages(consultationId)
         if (cancelled) return
         setSelfId(res.selfId)
+        // Ended from the other side: the transcript would otherwise just stop,
+        // with nothing to say the conversation was over.
+        if (res.status === 'completed' || res.status === 'cancelled') setClosedByOther(true)
         setMessages(prev => {
           const sameLength = prev.length === res.messages.length
           const sameTail = prev[prev.length - 1]?.id === res.messages[res.messages.length - 1]?.id
@@ -370,6 +374,15 @@ export default function ChatRoom({
         </div>
       </div>
 
+      {closedByOther && (
+        <div className="shrink-0 px-4 sm:px-5 py-2.5 bg-[#C9A227]/10 border-t border-[#C9A227]/25">
+          <p className="max-w-2xl mx-auto text-xs text-[#D4AF37]">
+            {viewerRole === 'lawyer' ? 'The client' : 'The lawyer'} ended this consultation.
+            The conversation stays saved.
+          </p>
+        </div>
+      )}
+
       {error && (
         <div className="shrink-0 px-4 sm:px-5 py-2 bg-red-500/10 border-t border-red-500/20">
           <p className="max-w-2xl mx-auto text-xs text-red-300">{error}</p>
@@ -412,14 +425,15 @@ export default function ChatRoom({
             }}
             rows={1}
             maxLength={4000}
-            placeholder="Type your message…"
+            disabled={closedByOther}
+            placeholder={closedByOther ? 'This consultation has ended' : 'Type your message…'}
             aria-label="Message"
             className="flex-1 resize-none max-h-32 px-4 py-2.5 rounded-full bg-white/[0.06] border border-white/12 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:border-[#C9A227]/60 transition-colors"
           />
 
           <button
             onClick={send}
-            disabled={!draft.trim() || sending}
+            disabled={!draft.trim() || sending || closedByOther}
             aria-label="Send"
             className="shrink-0 w-10 h-10 rounded-full bg-[#C9A227] hover:bg-[#E5C050] text-[#0A0D14] grid place-items-center transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >

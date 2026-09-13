@@ -160,6 +160,10 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
    */
   const remoteVideoRef = useRef<HTMLDivElement | null>(null)
   const [remoteHasVideo, setRemoteHasVideo] = useState(false)
+  // Distinct from "not arrived yet": once someone has been here and gone, the
+  // other side was left looking at a waiting screen for a person who had hung
+  // up, with nothing to say so.
+  const [otherLeft, setOtherLeft] = useState(false)
 
   const [localVideo, setLocalVideo] = useState<ICameraVideoTrack | null>(null)
   const [localAudio, setLocalAudio] = useState<IMicrophoneAudioTrack | null>(null)
@@ -256,7 +260,9 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
         rtc.on('user-left', user => {
           setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid))
           setRemoteHasVideo(false)
+          setOtherLeft(true)
         })
+        rtc.on('user-joined', () => setOtherLeft(false))
         rtc.on('connection-state-change', (state) => {
           if (state === 'CONNECTED') setConnState('connected')
           if (state === 'DISCONNECTED') setConnState('disconnected')
@@ -491,7 +497,11 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
           )}
         </div>
         <div className="text-xs text-slate-500 font-mono">
-          {remoteUsers.length > 0 ? `${remoteUsers.length + 1} participant${remoteUsers.length > 0 ? 's' : ''}` : (viewerRole === 'lawyer' ? 'Waiting for client…' : 'Waiting for lawyer…')}
+          {remoteUsers.length > 0
+            ? `${remoteUsers.length + 1} participants`
+            : otherLeft
+              ? (viewerRole === 'lawyer' ? 'Client left' : 'Lawyer left')
+              : (viewerRole === 'lawyer' ? 'Waiting for client…' : 'Waiting for lawyer…')}
         </div>
       </div>
 
@@ -529,19 +539,25 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                 </div>
                 <div>
                   <p className="text-white font-medium mb-1">
-                    {viewerRole === 'lawyer' ? 'Waiting for the client to join…' : 'Waiting for the lawyer to join…'}
+                    {otherLeft
+                      ? (viewerRole === 'lawyer' ? 'The client left the call' : 'The lawyer left the call')
+                      : (viewerRole === 'lawyer' ? 'Waiting for the client to join…' : 'Waiting for the lawyer to join…')}
                   </p>
                   <p className="text-slate-500 text-sm">
-                    {viewerRole === 'lawyer'
-                      ? 'The client has been notified and will join shortly.'
-                      : 'The lawyer has been notified and will join shortly.'}
+                    {otherLeft
+                      ? 'They may be reconnecting. End the call to finish and settle it.'
+                      : viewerRole === 'lawyer'
+                        ? 'The client has been notified and will join shortly.'
+                        : 'The lawyer has been notified and will join shortly.'}
                   </p>
                 </div>
-                <div className="flex gap-1.5">
-                  {[0,1,2].map(i => (
-                    <span key={i} className="w-2 h-2 rounded-full bg-[#C9A227]/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
-                  ))}
-                </div>
+                {!otherLeft && (
+                  <div className="flex gap-1.5">
+                    {[0,1,2].map(i => (
+                      <span key={i} className="w-2 h-2 rounded-full bg-[#C9A227]/40 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                    ))}
+                  </div>
+                )}
               </div>
             ) : null}
           </div>
@@ -550,9 +566,9 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
               <div className={`w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center relative ${
-                remoteUsers.length > 0 ? 'bg-emerald-500/10' : 'bg-[#C9A227]/10'
+                remoteUsers.length > 0 ? 'bg-emerald-500/10' : otherLeft ? 'bg-rose-500/10' : 'bg-[#C9A227]/10'
               }`}>
-                <svg className={`w-12 h-12 ${remoteUsers.length > 0 ? 'text-emerald-400' : 'text-[#C9A227]/60'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                <svg className={`w-12 h-12 ${remoteUsers.length > 0 ? 'text-emerald-400' : otherLeft ? 'text-rose-400' : 'text-[#C9A227]/60'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                 </svg>
                 {remoteUsers.length > 0 && (
@@ -562,12 +578,20 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                 )}
               </div>
               <p className="text-xl font-semibold text-white mb-2">
-                {remoteUsers.length > 0 ? 'Connected' : (viewerRole === 'lawyer' ? 'Waiting for Client…' : 'Waiting for Lawyer…')}
+                {remoteUsers.length > 0
+                  ? 'Connected'
+                  : otherLeft
+                    ? (viewerRole === 'lawyer' ? 'Client left' : 'Lawyer left')
+                    : (viewerRole === 'lawyer' ? 'Waiting for Client…' : 'Waiting for Lawyer…')}
               </p>
               <p className="text-slate-400 text-sm">
                 {remoteUsers.length > 0
                   ? `Voice call in progress — ${timer.fmt}`
-                  : 'The lawyer has been notified'}
+                  : otherLeft
+                    ? 'They may be reconnecting. End the call to finish and settle it.'
+                    : viewerRole === 'lawyer'
+                      ? 'The client has been notified'
+                      : 'The lawyer has been notified'}
               </p>
               {!micEnabled && (
                 <div className="mt-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-rose-500/10 border border-rose-500/20">
