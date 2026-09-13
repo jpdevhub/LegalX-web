@@ -33,7 +33,6 @@ interface Props {
   viewerRole: 'client' | 'lawyer'
   counterpartName?: string
   feePerMinute?: number
-  creditPaise?: number
 }
 
 function timeOf(iso: string): string {
@@ -58,7 +57,7 @@ function sizeOf(bytes?: number | null): string {
 }
 
 export default function ChatRoom({
-  consultationId, viewerRole, counterpartName, feePerMinute, creditPaise,
+  consultationId, viewerRole, counterpartName, feePerMinute,
 }: Props) {
   const router = useRouter()
 
@@ -71,7 +70,9 @@ export default function ChatRoom({
   const [uploading, setUploading] = useState(false)
   const [ended, setEnded] = useState(false)
   const [closedByOther, setClosedByOther] = useState(false)
-  const [elapsed, setElapsed] = useState(0)
+  const [startedAt, setStartedAt] = useState<string | null>(null)
+  const [endedAt, setEndedAt] = useState<string | null>(null)
+  const [now, setNow] = useState(() => Date.now())
 
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const atBottomRef = useRef(true)
@@ -86,8 +87,8 @@ export default function ChatRoom({
         const res = await apiGetMessages(consultationId)
         if (cancelled) return
         setSelfId(res.selfId)
-        // Ended from the other side: the transcript would otherwise just stop,
-        // with nothing to say the conversation was over.
+        setStartedAt(res.startedAt)
+        setEndedAt(res.endedAt)
         if (res.status === 'completed' || res.status === 'cancelled') setClosedByOther(true)
         setMessages(prev => {
           const sameLength = prev.length === res.messages.length
@@ -107,11 +108,13 @@ export default function ChatRoom({
     return () => { cancelled = true; clearInterval(id) }
   }, [consultationId])
 
+  const live = Boolean(startedAt) && !endedAt && !ended && !closedByOther
+
   useEffect(() => {
-    if (ended) return
-    const id = setInterval(() => setElapsed(s => s + 1), 1000)
+    if (!live) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [ended])
+  }, [live])
 
   // ── Scrolling ──────────────────────────────────────────────────────────────
   // Follow new messages only when the reader is already at the bottom. Yanking
@@ -199,11 +202,16 @@ export default function ChatRoom({
   }
 
   const exitHref = viewerRole === 'lawyer' ? '/lawyer-dashboard/consultations' : '/talk-to-lawyer'
+
+  // Measured from the server's started_at, which is what settlement bills, and
+  // frozen at ended_at. A local counter ran before the lawyer arrived and kept
+  // running after the consultation closed.
+  const elapsed = startedAt
+    ? Math.max(0, Math.floor(((endedAt ? new Date(endedAt).getTime() : now) - new Date(startedAt).getTime()) / 1000))
+    : 0
   const mins = Math.floor(elapsed / 60)
   const fmt = `${String(mins).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`
-  // Billing charges whole minutes with a one-minute floor, so the running cost
-  // shown here matches what settlement will actually take.
-  const cost = feePerMinute ? Math.max(1, Math.ceil(elapsed / 60)) * feePerMinute : null
+  const cost = startedAt && feePerMinute ? Math.max(1, Math.ceil(elapsed / 60)) * feePerMinute : null
   const other = counterpartName || (viewerRole === 'lawyer' ? 'Client' : 'Your lawyer')
 
   if (ended) {
@@ -260,16 +268,32 @@ export default function ChatRoom({
 
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-white truncate leading-tight">{other}</span>
-          <span className="flex items-center gap-1.5 text-[11px] text-emerald-400 leading-tight">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden />
-            In consultation
+          <span className={`flex items-center gap-1.5 text-[11px] leading-tight ${
+            live ? 'text-emerald-400' : closedByOther || endedAt ? 'text-slate-500' : 'text-[#D4AF37]'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              live ? 'bg-emerald-400' : closedByOther || endedAt ? 'bg-slate-600' : 'bg-[#D4AF37] animate-pulse'
+            }`} aria-hidden />
+            {live
+              ? 'In consultation'
+              : closedByOther || endedAt
+                ? 'Consultation ended'
+                : viewerRole === 'lawyer' ? 'Waiting for the client' : 'Waiting for the lawyer'}
           </span>
         </span>
       </header>
 
       {/* The meter: what this is costing while it runs */}
-      <div className="shrink-0 flex items-center gap-3 px-4 sm:px-5 py-2 bg-[#C9A227]/[0.07] border-b border-[#C9A227]/15 text-[12px]">
-        <span className="flex items-center gap-1.5 font-mono tabular-nums text-[#D4AF37] font-semibold">
+      <div className={`shrink-0 flex items-center gap-3 px-4 sm:px-5 py-2 border-b text-[12px] ${
+        live ? 'bg-[#C9A227]/[0.07] border-[#C9A227]/15' : 'bg-white/[0.02] border-white/8'
+      }`}>
+        {!startedAt ? (
+          <span className="text-slate-400">
+            Billing starts when {viewerRole === 'lawyer' ? 'you join' : 'your lawyer joins'}
+          </span>
+        ) : (
+        <>
+        <span className={`flex items-center gap-1.5 font-mono tabular-nums font-semibold ${live ? 'text-[#D4AF37]' : 'text-slate-400'}`}>
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="13" r="8" /><path strokeLinecap="round" d="M12 9v4l2.5 2.5M9 2h6" />
           </svg>
@@ -280,10 +304,10 @@ export default function ChatRoom({
             Cost <span className="text-white font-semibold tabular-nums">₹{cost}</span>
           </span>
         )}
-        {typeof creditPaise === 'number' && (
-          <span className="ml-auto text-slate-400">
-            Credit <span className="text-white font-semibold tabular-nums">₹{Math.max(0, Math.round(creditPaise / 100 - (cost ?? 0)))}</span>
-          </span>
+        {(closedByOther || endedAt) && (
+          <span className="ml-auto text-slate-500">Final</span>
+        )}
+        </>
         )}
       </div>
 

@@ -164,6 +164,7 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
   // other side was left looking at a waiting screen for a person who had hung
   // up, with nothing to say so.
   const [otherLeft, setOtherLeft] = useState(false)
+  const [leaveReason, setLeaveReason] = useState<'quit' | 'dropped' | null>(null)
 
   const [localVideo, setLocalVideo] = useState<ICameraVideoTrack | null>(null)
   const [localAudio, setLocalAudio] = useState<IMicrophoneAudioTrack | null>(null)
@@ -257,12 +258,18 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
           setRemoteUsers(prev => prev.map(u => u.uid === user.uid ? user : u))
           if (mediaType === 'video') setRemoteHasVideo(false)
         })
-        rtc.on('user-left', user => {
+        rtc.on('user-left', (user, reason) => {
           setRemoteUsers(prev => prev.filter(u => u.uid !== user.uid))
           setRemoteHasVideo(false)
           setOtherLeft(true)
+          // 'Quit' is a deliberate hang-up; anything else is a network drop
+          // that a reconnect may still recover, so it gets a grace period.
+          setLeaveReason(reason === 'Quit' ? 'quit' : 'dropped')
         })
-        rtc.on('user-joined', () => setOtherLeft(false))
+        rtc.on('user-joined', () => {
+          setOtherLeft(false)
+          setLeaveReason(null)
+        })
         rtc.on('connection-state-change', (state) => {
           if (state === 'CONNECTED') setConnState('connected')
           if (state === 'DISCONNECTED') setConnState('disconnected')
@@ -371,10 +378,10 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
   const exitLabel = viewerRole === 'lawyer' ? 'Back to consultations' : 'Back to lawyers'
 
   const callRunning = remoteUsers.length > 0
+
   useEffect(() => {
     if (callRunning) timer.start()
-    // Deliberately not stopped when they drop: a reconnect inside a live call
-    // should not reset the elapsed time to zero.
+    else timer.stop()
   }, [callRunning]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Controls ─────────────────────────────────────────────────────────────────
@@ -409,6 +416,19 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
       onEnded?.()
     }
   }, [consultationId, localAudio, localVideo, timer, onEnded])
+
+  // Once the other side has gone the call is over for whoever is left. A
+  // deliberate hang-up ends it at once; a dropped connection waits, because a
+  // reconnect inside that window is common and ending the call would bill it.
+  useEffect(() => {
+    if (!otherLeft || ended || ending) return
+
+    // Deferred even for a deliberate quit, so the effect never sets state as
+    // it runs; the delay is only long enough to leave the render pass.
+    const delay = leaveReason === 'quit' ? 50 : 10_000
+    const id = setTimeout(() => { void endCall() }, delay)
+    return () => clearTimeout(id)
+  }, [otherLeft, leaveReason, ended, ending]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Ended screen ──────────────────────────────────────────────────────────────
   if (ended) {
@@ -545,7 +565,9 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                   </p>
                   <p className="text-slate-500 text-sm">
                     {otherLeft
-                      ? 'They may be reconnecting. End the call to finish and settle it.'
+                      ? leaveReason === 'quit'
+                        ? 'Ending the call…'
+                        : 'Connection lost. Waiting a few seconds in case they return.'
                       : viewerRole === 'lawyer'
                         ? 'The client has been notified and will join shortly.'
                         : 'The lawyer has been notified and will join shortly.'}
@@ -588,7 +610,9 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
                 {remoteUsers.length > 0
                   ? `Voice call in progress — ${timer.fmt}`
                   : otherLeft
-                    ? 'They may be reconnecting. End the call to finish and settle it.'
+                    ? leaveReason === 'quit'
+                      ? 'Ending the call…'
+                      : 'Connection lost. Waiting a few seconds in case they return.'
                     : viewerRole === 'lawyer'
                       ? 'The client has been notified'
                       : 'The lawyer has been notified'}

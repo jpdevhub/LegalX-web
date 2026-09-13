@@ -1130,7 +1130,14 @@ export interface ChatMessage {
 
 export async function apiGetMessages(
   consultationId: string
-): Promise<{ conversationId: string; messages: ChatMessage[]; selfId: string; status: string }> {
+): Promise<{
+  conversationId: string
+  messages: ChatMessage[]
+  selfId: string
+  status: string
+  startedAt: string | null
+  endedAt: string | null
+}> {
   return apiFetch(`/api/consultations/${consultationId}/messages`)
 }
 
