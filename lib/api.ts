@@ -203,6 +203,11 @@ export interface AuthUser {
   role: 'client' | 'lawyer' | 'admin'
   /** Remaining free consultation credit, in paise. Absent on older sessions. */
   freeCreditPaise?: number
+  /**
+   * Relative path that redirects to a freshly signed photo URL, or null.
+   * Not a signed URL itself — those expire, and this is read on every load.
+   */
+  avatarUrl?: string | null
 }
 
 export async function apiLogin(email: string, password: string): Promise<AuthUser> {
@@ -304,6 +309,18 @@ export async function apiResetPassword(
     method: 'POST',
     body: JSON.stringify({ email, otp, password }),
   })
+}
+
+/**
+ * Absolute URL for a relative API path such as AuthUser.avatarUrl.
+ *
+ * Those paths are relative on purpose — the backend redirects them to a freshly
+ * signed link, so they never go stale in a long session.
+ */
+export function apiAssetUrl(path: string | null | undefined): string | null {
+  if (!path) return null
+  if (/^https?:\/\//i.test(path)) return path
+  return `${getBaseUrl()}${path}`
 }
 
 export async function apiGetMe(): Promise<AuthUser | null> {

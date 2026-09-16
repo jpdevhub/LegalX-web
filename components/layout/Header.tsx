@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/Button'
 import { LXLogoMark } from '@/components/ui/LXLogo'
 import { cn } from '@/lib/utils'
-import { apiGetMe, apiLogout, type AuthUser } from '@/lib/api'
+import { apiAssetUrl, apiGetMe, apiLogout, type AuthUser } from '@/lib/api'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 
 const NAV_ITEMS = [
@@ -70,6 +70,7 @@ export function Header() {
 
   const isActive = (href: string) => href === '/' ? pathname === '/' : pathname.startsWith(href)
   const initials = user ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase() : ''
+  const avatarSrc = apiAssetUrl(user?.avatarUrl)
 
   return (
     <>
@@ -142,8 +143,13 @@ export function Header() {
                   aria-expanded={userMenuOpen}
                   className="flex items-center gap-2 px-2 py-1 rounded-md hover:bg-surface-soft dark:hover:bg-white/5 transition-colors"
                 >
-                  <span className="w-8 h-8 rounded-full bg-primary text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0">
-                    {initials || <UserIcon className="w-4 h-4" />}
+                  <span className="w-8 h-8 rounded-full bg-primary text-white text-[12px] font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {avatarSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      initials || <UserIcon className="w-4 h-4" />
+                    )}
                   </span>
                   <span className="hidden md:block text-body-sm font-medium text-ink dark:text-white max-w-[100px] truncate">
                     {user.firstName}
@@ -297,8 +303,13 @@ export function Header() {
             {!authLoading && user ? (
               <>
                 <div className="flex items-center gap-3 px-4 py-3 mb-2">
-                  <span className="w-9 h-9 rounded-full bg-primary text-white text-sm font-bold flex items-center justify-center flex-shrink-0">
-                    {initials}
+                  <span className="w-9 h-9 rounded-full bg-primary text-white text-sm font-bold flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {avatarSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarSrc} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      initials
+                    )}
                   </span>
                   <div className="min-w-0">
                     <p className="text-body-sm font-semibold text-ink dark:text-white truncate">{user.firstName} {user.lastName}</p>
