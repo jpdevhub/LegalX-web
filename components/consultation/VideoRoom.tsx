@@ -23,7 +23,7 @@ import AgoraRTC, {
   ICameraVideoTrack,
   IMicrophoneAudioTrack,
 } from 'agora-rtc-sdk-ng'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, apiReportMediaConnected } from '@/lib/api'
 
 AgoraRTC.setLogLevel(4) // NONE in production to prevent console noise
 
@@ -383,6 +383,22 @@ export default function VideoRoom({ consultationId, channel, token, uid, appId, 
     if (callRunning) timer.start()
     else timer.stop()
   }, [callRunning]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /**
+   * Tell the server the media session connected.
+   *
+   * Someone else being in the channel is what "both are here" means for a
+   * call, and it is the only thing that starts the billing clock. Only the
+   * Android app ever reported it, so on the web started_at stayed null: the
+   * header sat on "Waiting for the client" through an entire consultation and
+   * nothing was billed. Reported once per room.
+   */
+  const reportedConnect = useRef(false)
+  useEffect(() => {
+    if (!callRunning || reportedConnect.current) return
+    reportedConnect.current = true
+    void apiReportMediaConnected(consultationId)
+  }, [callRunning, consultationId])
 
   // ── Controls ─────────────────────────────────────────────────────────────────
   const toggleMic = useCallback(async () => {

@@ -1487,6 +1487,25 @@ export interface PortalConsultation {
   agoraChannel: string | null
 }
 
+/**
+ * Reports that media actually connected, which is what starts the billing
+ * clock for a voice or video consultation. Opening the room is not enough —
+ * a caller stuck on "Connecting…" must not be billed for the attempt.
+ */
+export async function apiReportMediaConnected(consultationId: string): Promise<string | null> {
+  try {
+    const res = await apiFetch<{ startedAt: string | null }>(
+      `/api/consultations/${consultationId}/media-connected`,
+      { method: 'POST' },
+    )
+    return res.startedAt
+  } catch {
+    // The call is live either way; the server also settles this when the other
+    // side reports, so one failed report is not worth interrupting anyone.
+    return null
+  }
+}
+
 export async function apiGetPortalConsultations(status?: ConsultStatus): Promise<PortalConsultation[]> {
   const qs = status ? `?status=${status}` : ''
   try { return await apiFetch<PortalConsultation[]>(`/api/consultations/lawyer${qs}`) }

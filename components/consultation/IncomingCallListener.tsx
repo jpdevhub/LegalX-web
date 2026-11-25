@@ -27,6 +27,11 @@ interface IncomingCall {
   type: 'chat' | 'voice' | 'video'
   clientName?: string
   expiresAt?: string
+  /** 'credits' means the client is on the free grant and this is pro bono. */
+  funding?: 'credits' | 'paid'
+  paidForLawyer?: boolean
+  feePerMinute?: number | null
+  unpaidMinutes?: number
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -331,6 +336,22 @@ function Ringer({
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold">Incoming {TYPE_LABEL[call.type]}</p>
+              {/* Said before they answer, not discovered in a payout later. */}
+              {call.funding && (
+                <p className="mt-0.5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      call.paidForLawyer
+                        ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-sky-500/15 text-sky-300 border border-sky-500/30'
+                    }`}
+                  >
+                    {call.paidForLawyer
+                      ? `Paid · ₹${call.feePerMinute ?? 0}/min after ${call.unpaidMinutes ?? 5} min`
+                      : 'Free consultation · not billed to you'}
+                  </span>
+                </p>
+              )}
               <p className="text-slate-400 text-xs mt-0.5">
                 {call.clientName ?? 'A client'} · declines in {remaining}s
               </p>
