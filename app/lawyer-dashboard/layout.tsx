@@ -27,21 +27,21 @@ export default function LawyerPortalLayout({ children }: { children: React.React
   // Auth check on mount
   useEffect(() => {
     async function check() {
-      const u = await apiGetMe()
+      // Issued together, not one after the other. These are independent, and a
+      // round trip to the backend costs about a second and a half — waiting for
+      // the first before starting the second doubled the time to first paint.
+      const [u, lm] = await Promise.all([apiGetMe(), apiGetLawyerMe()])
       if (!mountedRef.current) return
+
       if (!u || u.role !== 'lawyer') {
         router.replace('/login?redirect_to=/lawyer-dashboard')
         return
       }
-      setUser(u)
 
-      // Load online status
-      const lm = await apiGetLawyerMe()
-      if (mountedRef.current) {
-        // Intent, not the lease — see LawyerMe in lib/api.ts for why.
-        setIsOnline(lm?.is_online ?? false)
-        setAuthReady(true)
-      }
+      setUser(u)
+      // Intent, not the lease — see LawyerMe in lib/api.ts for why.
+      setIsOnline(lm?.is_online ?? false)
+      setAuthReady(true)
     }
     check()
   }, [router])

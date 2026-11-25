@@ -99,11 +99,13 @@ export function isSessionDead(): boolean {
 /** Re-arms everything after a successful sign-in. */
 export function markSessionAlive(): void {
   sessionDead = false
+  clearMeCache()
 }
 
 function markSessionDead(): void {
   if (sessionDead) return
   sessionDead = true
+  clearMeCache()
   // One event, so callers do not each invent their own redirect.
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
@@ -370,13 +372,46 @@ export function apiAssetUrl(path: string | null | undefined): string | null {
   return `${getBaseUrl()}${path}`
 }
 
-export async function apiGetMe(): Promise<AuthUser | null> {
-  try {
-    const data = await apiFetch<{ user: AuthUser }>('/api/auth/me')
-    return data.user
-  } catch {
-    return null
+/**
+ * Who is signed in, shared across callers.
+ *
+ * Three components ask on mount — the header, the portal layout and the call
+ * listener — and each round trip costs about a second and a half, serially.
+ * One in-flight request is shared, and the answer is reused briefly afterwards
+ * so a route change does not ask again.
+ */
+let mePromise: Promise<AuthUser | null> | null = null
+let meCache: { user: AuthUser | null; at: number } | null = null
+const ME_TTL_MS = 30_000
+
+/** Drops the cached identity. Called whenever the session changes. */
+export function clearMeCache(): void {
+  mePromise = null
+  meCache = null
+}
+
+export async function apiGetMe(options: { fresh?: boolean } = {}): Promise<AuthUser | null> {
+  if (!options.fresh) {
+    if (meCache && Date.now() - meCache.at < ME_TTL_MS) return meCache.user
+    if (mePromise) return mePromise
   }
+
+  mePromise = (async () => {
+    try {
+      const data = await apiFetch<{ user: AuthUser }>('/api/auth/me')
+      meCache = { user: data.user, at: Date.now() }
+      return data.user
+    } catch {
+      // Not cached: a failure is usually an expired session, and the latch in
+      // refreshSession already stops that being retried in a loop.
+      meCache = null
+      return null
+    } finally {
+      mePromise = null
+    }
+  })()
+
+  return mePromise
 }
 
 // ── Lawyers ───────────────────────────────────────────────────────────────────
