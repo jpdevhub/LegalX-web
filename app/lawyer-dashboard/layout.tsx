@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { apiGetMe, apiGetLawyerMe, apiFetch, type AuthUser } from '@/lib/api'
+import { apiGetMe, apiGetLawyerMe, apiFetch, SESSION_EXPIRED_EVENT, type AuthUser } from '@/lib/api'
 import { LPortalSidebar } from '@/components/lawyer-portal/LPortalSidebar'
 import { LPortalTopbar } from '@/components/lawyer-portal/LPortalTopbar'
 
@@ -14,6 +14,10 @@ export default function LawyerPortalLayout({ children }: { children: React.React
   const [user,        setUser]        = useState<AuthUser | null>(null)
   const [isOnline,    setIsOnline]    = useState(false)
   const [authReady,   setAuthReady]   = useState(false)
+
+  // Refreshed from every response that carries it, so retuning the window on
+  // the server takes effect on the next renewal rather than on reload.
+  const heartbeatMs = useRef(30_000)
 
   useEffect(() => {
     mountedRef.current = true
@@ -34,6 +38,7 @@ export default function LawyerPortalLayout({ children }: { children: React.React
       // Load online status
       const lm = await apiGetLawyerMe()
       if (mountedRef.current) {
+        // Intent, not the lease — see LawyerMe in lib/api.ts for why.
         setIsOnline(lm?.is_online ?? false)
         setAuthReady(true)
       }
@@ -53,10 +58,64 @@ export default function LawyerPortalLayout({ children }: { children: React.React
     try {
       // Key must be `isOnline` — the backend rejects anything else with a 400,
       // which is what used to make the switch snap back to offline.
-      await apiFetch('/api/lawyers/me/status', { method: 'PATCH', body: JSON.stringify({ isOnline: next }) })
+      const res = await apiFetch<{ heartbeatIntervalMs?: number }>(
+        '/api/lawyers/me/status',
+        { method: 'PATCH', body: JSON.stringify({ isOnline: next }) },
+      )
+      if (res?.heartbeatIntervalMs) heartbeatMs.current = res.heartbeatIntervalMs
     } catch {
       setIsOnline(!next) // rollback so the switch reflects the server
     }
+  }, [isOnline])
+
+  /**
+   * The mount check runs once. When the session expired an hour in, nothing
+   * noticed — the dashboard sat there with empty cards while everything behind
+   * it 401'd.
+   */
+  useEffect(() => {
+    const onExpired = () => {
+      if (!mountedRef.current) return
+      const here = window.location.pathname + window.location.search
+      router.replace(`/login?redirect_to=${encodeURIComponent(here)}`)
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
+  }, [router])
+
+  /**
+   * Renews the availability lease while the portal is open. Closing the tab
+   * takes the advocate out of the directory on its own. `renewed: false` means
+   * the server has them offline, so correct the switch.
+   */
+  useEffect(() => {
+    if (!isOnline) return
+
+    let stopped = false
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    async function beat() {
+      try {
+        const res = await apiFetch<{ renewed?: boolean; heartbeatIntervalMs?: number }>(
+          '/api/lawyers/me/heartbeat',
+          { method: 'POST' },
+        )
+        if (stopped || !mountedRef.current) return
+        if (res?.renewed === false) { setIsOnline(false); return }
+        // The server owns the cadence; adopt whatever it last told us.
+        if (res?.heartbeatIntervalMs) heartbeatMs.current = res.heartbeatIntervalMs
+        timer = setTimeout(beat, heartbeatMs.current)
+      } catch {
+        // One failed renewal is not a reason to go offline — the lease has
+        // room for three misses. Retry sooner than the usual cadence.
+        if (!stopped && mountedRef.current) timer = setTimeout(beat, 10_000)
+      }
+    }
+
+    // Renew now, so a reload leaves no gap for the lease to lapse in.
+    beat()
+
+    return () => { stopped = true; if (timer) clearTimeout(timer) }
   }, [isOnline])
 
 
