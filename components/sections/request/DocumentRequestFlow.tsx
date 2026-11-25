@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import Link from 'next/link'
 import type { LegalDocument, FormField } from '@/lib/documents'
+import { servicePriceInRupees, formatRupees, govtDutyNote } from '@/lib/documents'
 import { LeadGate } from './LeadGate'
 import { apiFetch } from '@/lib/api'
 
@@ -299,12 +300,10 @@ function StepReview({ doc, values, submitting, onSubmit }: { doc: LegalDocument;
 function StepPayment({
   doc,
   applicationId,
-  leadId,
   onSuccess,
 }: {
   doc: LegalDocument
   applicationId: string
-  leadId: string
   onSuccess: () => void
 }) {
   const [paying, setPaying]     = useState(false)
@@ -329,7 +328,11 @@ function StepPayment({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const amountPaise = parseInt(doc.pricing.total.replace(/[^\d]/g, ''), 10) * 100
+  // Display only. The server charges from this same helper, so the two cannot
+  // disagree — and the request below sends no figure at all.
+  const feeRupees = servicePriceInRupees(doc.slug)
+  const feeLabel  = feeRupees === null ? doc.pricing.total : formatRupees(feeRupees)
+  const govtDuty  = govtDutyNote(doc.slug)
 
   async function handlePay() {
     if (!sdkReady) {
@@ -341,19 +344,17 @@ function StepPayment({
 
     try {
       // ── 1. Create order on backend ───────────────────────────────────────
+      // Only the id goes up. A client-sent amount is a client-set price, and a
+      // signature over a ₹1 order verifies just as cleanly as one over ₹1,499.
       const order = await apiFetch<{
         orderId: string
         keyId: string
         amount: number
         currency: string
+        testMode?: boolean
       }>('\/api\/payment\/create-order', {
         method: 'POST',
-        body: JSON.stringify({
-          applicationId,
-          leadId,
-          serviceSlug: doc.slug,
-          amount: amountPaise,
-        }),
+        body: JSON.stringify({ applicationId }),
       })
 
       const leadName = sessionStorage.getItem('lx_lead_name') || ''
@@ -380,14 +381,14 @@ function StepPayment({
             try {
               setVerifying(true)
               // ── 3. Verify signature + update DB + send admin email ───────
+              // All the server needs — it reads the application from its own
+              // row rather than trusting ids restated here.
               await apiFetch('\/api\/payment\/verify', {
                 method: 'POST',
                 body: JSON.stringify({
                   razorpayOrderId:   response.razorpay_order_id,
                   razorpayPaymentId: response.razorpay_payment_id,
                   razorpaySignature: response.razorpay_signature,
-                  applicationId,
-                  leadId,
                 }),
               })
               // ✅ Backend now:
@@ -449,16 +450,29 @@ function StepPayment({
         <div className="space-y-3 text-body-sm">
           <div className="flex justify-between items-center">
             <span className="text-body-text dark:text-slate-400">{doc.title}</span>
-            <span className="text-ink dark:text-white font-semibold">{doc.pricing.total}</span>
+            <span className="text-ink dark:text-white font-semibold">{feeLabel}</span>
           </div>
           <div className="flex justify-between items-center text-muted text-[12px]">
             <span>Platform Fee</span>
             <span className="text-emerald-600 dark:text-emerald-400 font-medium">FREE</span>
           </div>
           <div className="flex justify-between items-center pt-3 border-t border-hairline dark:border-white/10">
-            <span className="font-bold text-ink dark:text-white">Total Due</span>
-            <span className="font-bold text-primary text-[20px]">{doc.pricing.total}</span>
+            <span className="font-bold text-ink dark:text-white">Pay now</span>
+            <span className="font-bold text-primary text-[20px]">{feeLabel}</span>
           </div>
+          {/* Named but not added in: it goes to the registry, not to LegalX.
+              Leaving it out entirely is how someone is surprised by it later. */}
+          {govtDuty && (
+            <div className="pt-3 border-t border-hairline dark:border-white/10">
+              <div className="flex justify-between items-start gap-3">
+                <span className="text-body-text dark:text-slate-400 text-[12px]">
+                  Government fee, paid separately
+                </span>
+                <span className="text-muted text-[12px] font-medium whitespace-nowrap">Not charged here</span>
+              </div>
+              <p className="text-muted text-[11px] mt-1 leading-snug">{govtDuty}</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -510,7 +524,7 @@ function StepPayment({
               <rect x="1" y="4" width="22" height="16" rx="2" strokeLinecap="round" strokeLinejoin="round" />
               <line x1="1" y1="10" x2="23" y2="10" strokeLinecap="round" />
             </svg>
-            Pay {doc.pricing.total} Securely
+            Pay {feeLabel} Securely
           </>
         )}
       </button>
@@ -727,7 +741,7 @@ export function DocumentRequestFlow({ doc }: { doc: LegalDocument }) {
             {step === 2 && <StepDetails doc={doc} values={formValues} onChange={handleFieldChange} />}
             {step === 3 && <StepUpload doc={doc} uploads={uploads} onUpload={handleUpload} onRemove={handleRemove} />}
             {step === 4 && <StepReview doc={doc} values={formValues} submitting={submitting} onSubmit={handleSubmitApplication} />}
-            {step === 5 && <StepPayment doc={doc} applicationId={applicationId} leadId={leadId} onSuccess={() => setStep(6)} />}
+            {step === 5 && <StepPayment doc={doc} applicationId={applicationId} onSuccess={() => setStep(6)} />}
             {step === 6 && <StepSuccess doc={doc} />}
           </div>
           {step < 6 && (
