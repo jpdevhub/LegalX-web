@@ -184,12 +184,12 @@ export default function ConsultationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/8 mb-6 w-fit">
+      <div className="flex gap-1 p-1 bg-white/5 rounded-xl border border-white/8 mb-6 w-full sm:w-fit overflow-x-auto">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap flex-none transition-all ${
               activeTab === t.key
                 ? 'bg-[#C9A227] text-[#0A0D14] font-bold'
                 : 'text-slate-400 hover:text-white'
