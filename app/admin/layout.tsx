@@ -9,7 +9,7 @@ import {
   LayoutDashboard, Users, UserCircle, Wallet, ShieldAlert,
   FileText, BarChart3, Newspaper, ScrollText, Zap, Scale, LogOut, Menu, X, UserCog, Bell,
 } from 'lucide-react'
-import { apiLogout, apiGetMe, apiGetAdminStats, type AuthUser } from '@/lib/api'
+import { apiLogout, apiGetMe, apiGetAdminStats, SESSION_EXPIRED_EVENT, type AuthUser } from '@/lib/api'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', href: '/admin',               icon: LayoutDashboard },
@@ -55,6 +55,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false)
     })()
     return () => { cancelled = true }
+  }, [router])
+
+  // The check above runs once. Without this, a session expiring an hour later
+  // left the portal on screen looking functional while everything 401'd.
+  useEffect(() => {
+    const onExpired = () => {
+      const here = window.location.pathname + window.location.search
+      router.replace(`/login?redirect_to=${encodeURIComponent(here)}`)
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired)
   }, [router])
 
   // Pending badge, refreshed on navigation so it reflects approvals just made.

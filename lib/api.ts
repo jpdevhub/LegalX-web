@@ -79,7 +79,41 @@ type FetchOptions = RequestInit & { skipCredentials?: boolean; skipCsrf?: boolea
 // so the later calls would present an already-spent token and log the user out.
 let refreshPromise: Promise<boolean> | null = null
 
+/**
+ * Set once the server says the refresh token is gone for good.
+ *
+ * Without it a dead session is retried forever: every caller found the expiry
+ * on its own and every one tried to recover, which filled the console with
+ * paired 401s on /me and /refresh while the page sat there empty.
+ */
+let sessionDead = false
+
+/** Fires once when a session dies, so the app can send the user to sign in. */
+export const SESSION_EXPIRED_EVENT = 'legalx:session-expired'
+
+/** True when the server has told us the session cannot be recovered. */
+export function isSessionDead(): boolean {
+  return sessionDead
+}
+
+/** Re-arms everything after a successful sign-in. */
+export function markSessionAlive(): void {
+  sessionDead = false
+}
+
+function markSessionDead(): void {
+  if (sessionDead) return
+  sessionDead = true
+  // One event, so callers do not each invent their own redirect.
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
+  }
+}
+
 function refreshSession(): Promise<boolean> {
+  // Already known dead: answer immediately instead of spending a round trip to
+  // be told the same thing again.
+  if (sessionDead) return Promise.resolve(false)
   if (refreshPromise) return refreshPromise
 
   refreshPromise = (async () => {
@@ -89,8 +123,14 @@ function refreshSession(): Promise<boolean> {
         credentials: 'include',
         signal: AbortSignal.timeout(8000),
       })
-      return res.ok
+      if (res.ok) return true
+
+      // Only 401/403 latch. A 500 or a cold start is a bad moment, not a dead
+      // session — latching on those would sign everyone out during a blip.
+      if (res.status === 401 || res.status === 403) markSessionDead()
+      return false
     } catch {
+      // Network error — assume transient, do not latch.
       return false
     }
   })()
@@ -215,6 +255,8 @@ export async function apiLogin(email: string, password: string): Promise<AuthUse
     method: 'POST',
     body: JSON.stringify({ email, password }),
   })
+  // Clears the latch so the stream and the portals recover without a reload.
+  markSessionAlive()
   return data.user
 }
 
@@ -266,7 +308,12 @@ export async function apiSignup(params: {
 }
 
 export async function apiLogout(): Promise<void> {
-  await apiFetch('/api/auth/logout', { method: 'POST' })
+  try {
+    await apiFetch('/api/auth/logout', { method: 'POST' })
+  } finally {
+    // Signed out either way — stops the stream and pollers chasing it.
+    markSessionDead()
+  }
 }
 
 /** Submit the contact / "Get in Touch" form. */
@@ -1306,8 +1353,10 @@ export interface LawyerMe {
   onboarding_complete: boolean
   verification_status: 'pending_signup' | 'pending_verification' | 'verified' | 'rejected' | 'unverified'
   rejection_reason: string | null
-  /** Availability switch state. Top-level because `profile` renames it to `online`. */
+  /** What the advocate chose. The switch shows this; the heartbeat renews it. */
   is_online: boolean
+  /** Whether a client can reach them right now. Read-only — never seed the switch from it. */
+  online: boolean
   profile: Record<string, any> | null
 }
 

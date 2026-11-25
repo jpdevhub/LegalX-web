@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { apiGetMe, apiFetch, sseUrl } from '@/lib/api'
+import { apiGetMe, apiFetch, sseUrl, isSessionDead } from '@/lib/api'
 
 /**
  * Rings the lawyer wherever they are on the site.
@@ -152,8 +152,14 @@ export function IncomingCallListener() {
      */
     const connect = async () => {
       if (closed) return
+
+      // A dead session is not a connection problem. This loop was the engine
+      // behind the 401 storm — every attempt refreshed, failed, and rescheduled
+      // itself forever.
+      if (isSessionDead()) { closed = true; return }
+
       try { await apiGetMe() } catch { /* still worth attempting the stream */ }
-      if (closed) return
+      if (closed || isSessionDead()) { closed = true; return }
 
       const es = new EventSource(sseUrl('/api/notifications/stream'), { withCredentials: true })
       esRef.current = es
@@ -173,6 +179,11 @@ export function IncomingCallListener() {
       es.onerror = () => {
         es.close()
         if (closed) return
+
+        // EventSource reports no status code, so a dropped connection and an
+        // auth failure look identical here. The latch tells them apart.
+        if (isSessionDead()) { closed = true; return }
+
         attempts += 1
         retry = setTimeout(() => { void connect() }, Math.min(2000 * 2 ** (attempts - 1), 60_000))
       }
@@ -203,19 +214,29 @@ export function IncomingCallListener() {
     if (!isLawyer) return
     let stopped = false
 
+    let id: ReturnType<typeof setInterval> | null = null
+
     const poll = async () => {
       if (stopped || document.hidden) return
+
+      // Fifteen guaranteed 401s a minute was the other half of the storm.
+      if (isSessionDead()) {
+        stopped = true
+        if (id) clearInterval(id)
+        return
+      }
+
       try {
         const res = await apiFetch<{ call: IncomingCall | null }>('/api/consultations/incoming')
         if (stopped || !res.call) return
         if (dismissed.current.has(res.call.consultationId)) return
         setCall(prev => (prev?.consultationId === res.call!.consultationId ? prev : res.call))
-      } catch { /* offline or signed out — the next tick tries again */ }
+      } catch { /* offline or a blip — the next tick tries again */ }
     }
 
     poll()
-    const id = setInterval(poll, 4000)
-    return () => { stopped = true; clearInterval(id) }
+    id = setInterval(poll, 4000)
+    return () => { stopped = true; if (id) clearInterval(id) }
   }, [isLawyer])
 
   const decline = useCallback(async () => {
