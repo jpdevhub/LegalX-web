@@ -24,26 +24,40 @@ export default function LawyerPortalLayout({ children }: { children: React.React
     return () => { mountedRef.current = false }
   }, [])
 
-  // Auth check on mount
+  /**
+   * Auth check on mount.
+   *
+   * `cancelled` is local to this run rather than the shared mountedRef: that
+   * ref is set false by an unrelated cleanup, so a re-run could return early
+   * and leave the spinner up for good — which is the "comes back to an
+   * infinite loading screen" people were hitting after navigating away.
+   */
   useEffect(() => {
-    async function check() {
-      // Issued together, not one after the other. These are independent, and a
-      // round trip to the backend costs about a second and a half — waiting for
-      // the first before starting the second doubled the time to first paint.
-      const [u, lm] = await Promise.all([apiGetMe(), apiGetLawyerMe()])
-      if (!mountedRef.current) return
+    let cancelled = false
 
-      if (!u || u.role !== 'lawyer') {
-        router.replace('/login?redirect_to=/lawyer-dashboard')
-        return
+    ;(async () => {
+      try {
+        // Issued together, not one after the other. These are independent, and
+        // a round trip costs about a second and a half.
+        const [u, lm] = await Promise.all([apiGetMe(), apiGetLawyerMe()])
+        if (cancelled) return
+
+        if (!u || u.role !== 'lawyer') {
+          router.replace('/login?redirect_to=/lawyer-dashboard')
+          return
+        }
+
+        setUser(u)
+        // Intent, not the lease — see LawyerMe in lib/api.ts for why.
+        setIsOnline(lm?.is_online ?? false)
+      } finally {
+        // Always, on every path. The spinner is only ever a wait for this
+        // check to finish, so nothing may leave it hanging.
+        if (!cancelled) setAuthReady(true)
       }
+    })()
 
-      setUser(u)
-      // Intent, not the lease — see LawyerMe in lib/api.ts for why.
-      setIsOnline(lm?.is_online ?? false)
-      setAuthReady(true)
-    }
-    check()
+    return () => { cancelled = true }
   }, [router])
 
   /*
