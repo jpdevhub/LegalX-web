@@ -1225,6 +1225,8 @@ export interface ChatMessage {
   attachment_name?: string | null
   attachment_size?: number | null
   created_at: string
+  /** Which session this was sent in. The thread spans several. */
+  consultation_id?: string | null
 }
 
 export async function apiGetMessages(
@@ -1236,6 +1238,12 @@ export async function apiGetMessages(
   status: string
   startedAt: string | null
   endedAt: string | null
+  consultationId: string
+  /** Seconds of talking the authorised credit still covers. */
+  secondsRemaining: number
+  /** Inside the final minute — time to offer a top-up. */
+  lowBalance: boolean
+  exhausted: boolean
 }> {
   return apiFetch(`/api/consultations/${consultationId}/messages`)
 }

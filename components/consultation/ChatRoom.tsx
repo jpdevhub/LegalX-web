@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
   apiFetch,
   apiGetMessages,
@@ -71,6 +72,8 @@ export default function ChatRoom({
   const [ended, setEnded] = useState(false)
   const [closedByOther, setClosedByOther] = useState(false)
   const [startedAt, setStartedAt] = useState<string | null>(null)
+  const [lowBalance, setLowBalance] = useState(false)
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null)
   const [endedAt, setEndedAt] = useState<string | null>(null)
   const [now, setNow] = useState(() => Date.now())
 
@@ -89,6 +92,8 @@ export default function ChatRoom({
         setSelfId(res.selfId)
         setStartedAt(res.startedAt)
         setEndedAt(res.endedAt)
+        setLowBalance(res.lowBalance)
+        setSecondsLeft(res.secondsRemaining)
         if (res.status === 'completed' || res.status === 'cancelled') setClosedByOther(true)
         setMessages(prev => {
           const sameLength = prev.length === res.messages.length
@@ -109,6 +114,19 @@ export default function ChatRoom({
   }, [consultationId])
 
   const live = Boolean(startedAt) && !endedAt && !ended && !closedByOther
+
+  /**
+   * Where this session's messages begin.
+   *
+   * The thread is kept per client and advocate, so it carries everything said
+   * in earlier consultations. Without a marker a conversation from last week
+   * reads as part of this one.
+   */
+  const resumedFrom = (() => {
+    if (!messages.length) return -1
+    const first = messages.findIndex(m => m.consultation_id === consultationId)
+    return first > 0 ? first : -1
+  })()
 
   useEffect(() => {
     if (!live) return
@@ -291,6 +309,23 @@ export default function ChatRoom({
           <span className="text-slate-400">
             Billing starts when {viewerRole === 'lawyer' ? 'you join' : 'your lawyer joins'}
           </span>
+        ) : lowBalance && viewerRole === 'client' ? (
+          /* Inside the final minute. Said here, while there is still time to
+             act — being cut off mid-sentence and then told is worse. */
+          <span className="flex items-center gap-2 text-amber-300">
+            <svg className="w-3.5 h-3.5 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+            </svg>
+            <span>
+              About {Math.max(1, Math.ceil((secondsLeft ?? 0) / 10) * 10)}s of balance left.
+            </span>
+            <Link
+              href="/wallet"
+              className="underline font-semibold hover:text-amber-200 whitespace-nowrap"
+            >
+              Top up to continue
+            </Link>
+          </span>
         ) : (
         <>
         <span className={`flex items-center gap-1.5 font-mono tabular-nums font-semibold ${live ? 'text-[#D4AF37]' : 'text-slate-400'}`}>
@@ -347,6 +382,17 @@ export default function ChatRoom({
                         <span className="px-3 py-1 rounded-full bg-white/[0.06] text-[11px] text-slate-400">
                           {dayOf(m.created_at)}
                         </span>
+                      </p>
+                    )}
+                    {/* Everything above this line is from earlier
+                        consultations with the same advocate. */}
+                    {i === resumedFrom && (
+                      <p className="flex items-center gap-3 my-5" aria-label="This consultation starts here">
+                        <span className="h-px flex-1 bg-[#C9A227]/25" />
+                        <span className="text-[11px] font-semibold tracking-wide text-[#C9A227]/80 uppercase whitespace-nowrap">
+                          This consultation
+                        </span>
+                        <span className="h-px flex-1 bg-[#C9A227]/25" />
                       </p>
                     )}
                     <div className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
