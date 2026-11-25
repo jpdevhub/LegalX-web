@@ -1,5 +1,23 @@
 import Link from 'next/link'
 import { LXLogoMark } from '@/components/ui/LXLogo'
+import { DOCUMENTS } from '@/lib/documents'
+
+/**
+ * Read from the catalogue rather than typed out. One hardcoded link pointed at
+ * a service that does not exist, and since the footer is on every page, Next
+ * prefetched that 404 everywhere.
+ */
+const FEATURED_SERVICE_SLUGS = [
+  'gst-registration',
+  'trademark-registration',
+  'udyam-registration',
+] as const
+
+const featuredServices = FEATURED_SERVICE_SLUGS
+  // Drop anything retired rather than render a dead link.
+  .map(slug => DOCUMENTS.find(d => d.slug === slug))
+  .filter((d): d is NonNullable<typeof d> => d !== undefined)
+  .map(d => ({ label: d.title, href: `/documents/${d.slug}` }))
 
 const FOOTER_LINKS = {
   company: [
@@ -9,9 +27,7 @@ const FOOTER_LINKS = {
   ],
   services: [
     { label: 'Legal Services', href: '/documents' },
-    { label: 'GST Registration', href: '/documents/gst-registration' },
-    { label: 'FSSAI Food License', href: '/documents/fssai-registration' },
-    { label: 'Trademark Registration', href: '/documents/trademark-registration' },
+    ...featuredServices,
   ],
   legal: [
     { label: 'Privacy Policy', href: '/privacy' },
