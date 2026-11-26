@@ -21,6 +21,7 @@ const GUARDED: { prefix: string; roles: Role[] }[] = [
   // Both parties need to reach the call room.
   { prefix: '/consultation',     roles: ['client', 'lawyer'] },
   // Booking flows — clients only. A lawyer cannot buy their own services.
+  { prefix: '/account',          roles: ['client'] },
   { prefix: '/request',          roles: ['client'] },
   { prefix: '/book',             roles: ['client'] },
 ]

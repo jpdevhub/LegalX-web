@@ -1748,3 +1748,104 @@ export async function apiBulkKnowledge(
     body: JSON.stringify({ ids, action, reason }),
   })
 }
+
+// ── Client account area ───────────────────────────────────────────────────────
+
+export type OrderType = 'Documentation' | 'Verification' | 'Lawyer Consultation' | 'LX Coins'
+export type OrderStatus = 'Completed' | 'Pending' | 'Cancelled' | 'Refunded'
+
+export interface AccountOrder {
+  id: string
+  orderType: OrderType
+  serviceTitle: string
+  date: string
+  amount: number
+  status: OrderStatus
+  lawyerName?: string
+  paymentMethod?: string
+}
+
+export interface SavedLawyer {
+  slug: string
+  name: string
+  avatarUrl: string | null
+  primarySpec: string
+  experience: number
+  rating: number
+  reviewCount: number
+  location: string
+  languages: string[]
+  verified: boolean
+  fees: { chat: number; voice: number; video: number }
+  savedAt: string | null
+}
+
+export interface SavedArticle {
+  kind: 'knowledge' | 'short'
+  slug: string
+  title: string
+  category: string | null
+  teaser: string
+  publishedAt: string | null
+  savedAt: string
+}
+
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed'
+
+export interface SupportTicket {
+  id: string
+  category: string
+  subject: string
+  description: string
+  date: string
+  status: TicketStatus
+  messages: { sender: 'User' | 'Support'; text: string; time: string }[]
+}
+
+export const SUPPORT_CATEGORIES = [
+  'Payments', 'Documents', 'Verification', 'Consultation', 'Account', 'Other',
+] as const
+
+export async function apiGetOrders(): Promise<AccountOrder[]> {
+  try { return (await apiFetch<{ orders: AccountOrder[] }>('/api/account/orders')).orders }
+  catch { return [] }
+}
+
+export async function apiGetSavedLawyers(): Promise<SavedLawyer[]> {
+  try { return (await apiFetch<{ lawyers: SavedLawyer[] }>('/api/account/saved-lawyers')).lawyers }
+  catch { return [] }
+}
+
+export async function apiSaveLawyer(lawyerId: string): Promise<void> {
+  await apiFetch('/api/account/saved-lawyers', { method: 'POST', body: JSON.stringify({ lawyerId }) })
+}
+
+export async function apiUnsaveLawyer(lawyerId: string): Promise<void> {
+  await apiFetch(`/api/account/saved-lawyers/${lawyerId}`, { method: 'DELETE' })
+}
+
+export async function apiGetSavedArticles(): Promise<SavedArticle[]> {
+  try { return (await apiFetch<{ articles: SavedArticle[] }>('/api/account/saved-articles')).articles }
+  catch { return [] }
+}
+
+export async function apiUnsaveArticle(kind: string, slug: string): Promise<void> {
+  await apiFetch(`/api/account/saved-articles/${kind}/${encodeURIComponent(slug)}`, { method: 'DELETE' })
+}
+
+export async function apiGetTickets(): Promise<SupportTicket[]> {
+  try { return (await apiFetch<{ tickets: SupportTicket[] }>('/api/account/support')).tickets }
+  catch { return [] }
+}
+
+export async function apiOpenTicket(input: {
+  category: string; subject: string; description: string
+}): Promise<{ ticketId: string }> {
+  return apiFetch('/api/account/support', { method: 'POST', body: JSON.stringify(input) })
+}
+
+export async function apiReplyToTicket(ticketId: string, body: string): Promise<void> {
+  await apiFetch(`/api/account/support/${ticketId}/messages`, {
+    method: 'POST', body: JSON.stringify({ body }),
+  })
+}

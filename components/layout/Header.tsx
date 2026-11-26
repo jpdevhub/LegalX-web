@@ -191,6 +191,7 @@ export function Header() {
                           </>
                         ) : user.role !== 'admin' ? (
                           <>
+                            <DropdownItem href="/account" onClick={() => setUserMenuOpen(false)} icon={<FileIcon />}>My orders</DropdownItem>
                             <DropdownItem href="/talk-to-lawyer" onClick={() => setUserMenuOpen(false)} icon={<ClockIcon />}>Talk to a Lawyer</DropdownItem>
                             <DropdownItem href="/wallet" onClick={() => setUserMenuOpen(false)} icon={<WalletIcon />}>Wallet</DropdownItem>
                             <DropdownItem href="/notifications" onClick={() => setUserMenuOpen(false)} icon={<BellDropIcon />}>Notifications</DropdownItem>
