@@ -1214,6 +1214,83 @@ export async function loadRazorpay(): Promise<void> {
   })
 }
 
+/** Thrown when the person closed the modal without paying. Not a failure. */
+export class CheckoutCancelled extends Error {
+  constructor() { super('cancelled'); this.name = 'CheckoutCancelled' }
+}
+
+export interface RazorpayResult {
+  razorpay_order_id: string
+  razorpay_payment_id: string
+  razorpay_signature: string
+}
+
+interface CheckoutOptions {
+  keyId: string
+  orderId: string
+  amount: number
+  currency: string
+  description: string
+  prefillName?: string
+  /** Runs after the gateway succeeds. Verification belongs in here. */
+  onPaid: (result: RazorpayResult) => Promise<void>
+}
+
+/**
+ * Opens the Razorpay modal and settles once, however it ends.
+ *
+ * Three outcomes, and all three used to collapse into one: a declined card
+ * fired `payment.failed`, which nothing listened for, so the modal sat there
+ * saying nothing and the caller's promise never settled. Dismissal was
+ * handled; the actual failure was not.
+ *
+ * Resolves on success, rejects with CheckoutCancelled when the person closed
+ * it, and rejects with the gateway's own reason when the payment failed —
+ * which is the message worth showing, not a generic one.
+ */
+export async function openRazorpayCheckout(opts: CheckoutOptions): Promise<void> {
+  await loadRazorpay()
+
+  return new Promise<void>((resolve, reject) => {
+    let settled = false
+    const finish = (fn: () => void) => { if (!settled) { settled = true; fn() } }
+
+    const Ctor = (window as unknown as {
+      Razorpay: new (o: unknown) => { open: () => void; on: (e: string, cb: (r: unknown) => void) => void }
+    }).Razorpay
+
+    const rzp = new Ctor({
+      key: opts.keyId,
+      order_id: opts.orderId,
+      amount: opts.amount,
+      currency: opts.currency,
+      name: 'LegalX',
+      description: opts.description,
+      image: '/logo.svg',
+      prefill: opts.prefillName ? { name: opts.prefillName } : undefined,
+      theme: { color: '#C9A227' },
+      handler: (r: RazorpayResult) => {
+        void opts.onPaid(r)
+          .then(() => finish(resolve))
+          .catch(err => finish(() => reject(err)))
+      },
+      modal: {
+        ondismiss: () => finish(() => reject(new CheckoutCancelled())),
+      },
+    })
+
+    // The event the three call sites were all missing.
+    rzp.on('payment.failed', (res: unknown) => {
+      const reason = (res as { error?: { description?: string; reason?: string } })?.error
+      finish(() => reject(new Error(
+        reason?.description || 'That payment did not go through. Try another method.',
+      )))
+    })
+
+    rzp.open()
+  })
+}
+
 // ── Consultation chat ─────────────────────────────────────────────────────────
 
 export interface ChatMessage {

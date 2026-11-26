@@ -29,7 +29,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ConsultIcon } from '@/components/ui/ConsultIcons'
-import { apiFetch, apiGetMe, apiGetWallet } from '@/lib/api'
+import { apiFetch, apiGetMe, apiGetWallet, openRazorpayCheckout, CheckoutCancelled } from '@/lib/api'
 import type { ApiLawyer } from '@/lib/api'
 
 const CONSULT_TYPES = [
@@ -118,6 +118,7 @@ export function BookingWidget({
         authToken?: string
         uid?: number
         razorpayOrderId?: string
+        keyId: string
         amount?: number
         currency?: string
       }>('/api/consultations/initiate', {
@@ -146,46 +147,37 @@ export function BookingWidget({
         document.head.appendChild(s)
       })
 
-      await new Promise<void>((resolve, reject) => {
-        const rzp = new (window as any).Razorpay({
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-          order_id: initiateData.razorpayOrderId,
-          amount: initiateData.amount,
-          currency: initiateData.currency || 'INR',
-          name: 'LegalX',
-          description: `${type} consultation with ${lawyer.name}`,
-          prefill: { name: user.firstName + ' ' + user.lastName, email: user.email },
-          theme: { color: '#C9A227' },
-          handler: async (response: any) => {
-            try {
-              const tokenData = await apiFetch<{
-                consultationId: string
-                channelName: string
-                agoraAppId: string
-                authToken: string
-                uid: number
-              }>('/api/consultations/token', {
-                method: 'POST',
-                body: JSON.stringify({
-                  consultationId: initiateData.consultationId,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                }),
-              })
-              router.push(
-                `/consultation/${tokenData.consultationId}?channel=${tokenData.channelName}&token=${tokenData.authToken}&uid=${tokenData.uid}&appId=${tokenData.agoraAppId}&type=${type}`
-              )
-              resolve()
-            } catch (err: any) {
-              reject(err)
-            }
-          },
-          modal: { ondismiss: () => reject(new Error('Payment cancelled')) },
-        })
-        rzp.open()
+      await openRazorpayCheckout({
+        keyId: initiateData.keyId,
+        orderId: initiateData.razorpayOrderId!,
+        amount: initiateData.amount!,
+        currency: initiateData.currency || 'INR',
+        description: `${type} consultation with ${lawyer.name}`,
+        prefillName: `${user.firstName} ${user.lastName}`.trim(),
+        onPaid: async response => {
+          const tokenData = await apiFetch<{
+            consultationId: string
+            channelName: string
+            agoraAppId: string
+            authToken: string
+            uid: number
+          }>('/api/consultations/token', {
+            method: 'POST',
+            body: JSON.stringify({
+              consultationId: initiateData.consultationId,
+              razorpayPaymentId: response.razorpay_payment_id,
+            }),
+          })
+          router.push(
+            `/consultation/${tokenData.consultationId}?channel=${tokenData.channelName}&token=${tokenData.authToken}&uid=${tokenData.uid}&appId=${tokenData.agoraAppId}&type=${type}`
+          )
+        },
       })
     } catch (err: any) {
       const msg = err?.message || 'Something went wrong. Please try again.'
-      if (msg === 'Payment cancelled') {
+      // Closing the modal is a decision, not a fault. A declined card now
+      // reaches here with the gateway's own reason instead of silence.
+      if (err instanceof CheckoutCancelled) {
         setStep('idle')
       } else if (/free credit|payment providers/i.test(msg)) {
         // Out of free credit and the gateway is off. Not an error the client

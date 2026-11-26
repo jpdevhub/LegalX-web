@@ -5,7 +5,7 @@ import Link from 'next/link'
 import type { LegalDocument, FormField } from '@/lib/documents'
 import { servicePriceInRupees, formatRupees, govtDutyNote } from '@/lib/documents'
 import { LeadGate } from './LeadGate'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, openRazorpayCheckout, CheckoutCancelled } from '@/lib/api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6
@@ -360,62 +360,33 @@ function StepPayment({
       const leadName = sessionStorage.getItem('lx_lead_name') || ''
 
       // ── 2. Open Razorpay checkout ────────────────────────────────────────
-      await new Promise<void>((resolve, reject) => {
-        // @ts-expect-error Razorpay is loaded via dynamic script — no @types package needed
-        const rzp = new window.Razorpay({
-          key: order.keyId,
-          amount: order.amount,
-          currency: order.currency,
-          name: 'LegalX Online',
-          description: doc.title,
-          order_id: order.orderId,
-          prefill: { name: leadName },
-          image: '/logo.svg',
-          theme: { color: '#C9A227' },
-
-          handler: async (response: {
-            razorpay_order_id: string
-            razorpay_payment_id: string
-            razorpay_signature: string
-          }) => {
-            try {
-              setVerifying(true)
-              // ── 3. Verify signature + update DB + send admin email ───────
-              // All the server needs — it reads the application from its own
-              // row rather than trusting ids restated here.
-              await apiFetch('\/api\/payment\/verify', {
-                method: 'POST',
-                body: JSON.stringify({
-                  razorpayOrderId:   response.razorpay_order_id,
-                  razorpayPaymentId: response.razorpay_payment_id,
-                  razorpaySignature: response.razorpay_signature,
-                }),
-              })
-              // ✅ Backend now:
-              //   - verifies HMAC signature
-              //   - marks application as paid in DB
-              //   - sends admin: "Payment Received: {name} — {service} (₹{amount})"
-              //   - sends user: "Payment Confirmed — {service} | LegalX"
-              resolve()
-              onSuccess()
-            } catch (verifyErr: any) {
-              reject(verifyErr)
-            }
-          },
-
-          modal: {
-            ondismiss: () => {
-              // User closed modal without paying — stay on payment step
-              setPaying(false)
-              setVerifying(false)
-              reject(new Error('cancelled'))
-            },
-          },
-        })
-        rzp.open()
+      await openRazorpayCheckout({
+        keyId: order.keyId,
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        description: doc.title,
+        prefillName: leadName,
+        onPaid: async response => {
+          setVerifying(true)
+          // ── 3. Verify signature, mark paid, send the receipts ───────────
+          // All the server needs — it reads the application from its own row
+          // rather than trusting ids restated here.
+          await apiFetch('\/api\/payment\/verify', {
+            method: 'POST',
+            body: JSON.stringify({
+              razorpayOrderId:   response.razorpay_order_id,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpaySignature: response.razorpay_signature,
+            }),
+          })
+          onSuccess()
+        },
       })
     } catch (err: any) {
-      if (err?.message !== 'cancelled') {
+      // Closing the modal is a decision, not a fault. A declined card now
+      // arrives here carrying the gateway's own reason.
+      if (!(err instanceof CheckoutCancelled)) {
         setError(err?.message || 'Payment failed. Please try again or contact support.')
       }
       setPaying(false)

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  apiGetMe, apiGetWallet, apiCreateTopupOrder, apiVerifyTopup, loadRazorpay,
+  apiGetMe, apiGetWallet, apiCreateTopupOrder, apiVerifyTopup, openRazorpayCheckout, CheckoutCancelled,
   type WalletSummary,
 } from '@/lib/api'
 
@@ -75,39 +75,32 @@ export default function WalletPage() {
 
     try {
       const order = await apiCreateTopupOrder(chosenPaise)
-      await loadRazorpay()
 
-      await new Promise<void>((resolve, reject) => {
-        const rzp = new (window as unknown as { Razorpay: new (o: unknown) => { open: () => void } }).Razorpay({
-          key: order.keyId,
-          order_id: order.orderId,
-          amount: order.amount,
-          currency: order.currency,
-          name: 'LegalX',
-          description: 'Wallet top-up',
-          theme: { color: '#C9A227' },
-          handler: async (r: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
-            try {
-              // The balance moves here, after the server checks the signature —
-              // never on the browser saying the payment worked.
-              const res = await apiVerifyTopup({
-                razorpayOrderId: r.razorpay_order_id,
-                razorpayPaymentId: r.razorpay_payment_id,
-                razorpaySignature: r.razorpay_signature,
-              })
-              setDone(`Added ${rupees(chosenPaise)} to your wallet.`)
-              setWallet(w => (w ? { ...w, walletPaise: res.walletPaise, spendablePaise: w.freeCreditPaise + res.walletPaise } : w))
-              await refresh()
-              resolve()
-            } catch (err) { reject(err) }
-          },
-          modal: { ondismiss: () => reject(new Error('Payment cancelled')) },
-        })
-        rzp.open()
+      await openRazorpayCheckout({
+        keyId: order.keyId,
+        orderId: order.orderId,
+        amount: order.amount,
+        currency: order.currency,
+        description: 'Wallet top-up',
+        onPaid: async r => {
+          // The balance moves here, after the server checks the signature —
+          // never on the browser saying the payment worked.
+          const res = await apiVerifyTopup({
+            razorpayOrderId: r.razorpay_order_id,
+            razorpayPaymentId: r.razorpay_payment_id,
+            razorpaySignature: r.razorpay_signature,
+          })
+          setDone(`Added ${rupees(chosenPaise)} to your wallet.`)
+          setWallet(w => (w ? { ...w, walletPaise: res.walletPaise, spendablePaise: w.freeCreditPaise + res.walletPaise } : w))
+          await refresh()
+        },
       })
     } catch (err: unknown) {
-      const msg = (err as Error)?.message || 'That top-up did not go through.'
-      if (msg !== 'Payment cancelled') setError(msg)
+      // Closing the modal is a decision, not a fault — say nothing. A declined
+      // card now arrives here with the gateway's own reason.
+      if (!(err instanceof CheckoutCancelled)) {
+        setError((err as Error)?.message || 'That top-up did not go through.')
+      }
     } finally {
       setBusy(false)
     }
