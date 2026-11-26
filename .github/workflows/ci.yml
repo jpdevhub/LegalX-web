@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # Catches what typecheck cannot: a client component reading
+      # useSearchParams with no Suspense boundary fails only at prerender,
+      # and that one was nearly shipped.
+      - name: Build
+        run: npm run build
+        env:
+          BACKEND_URL: https://legalx-backend-gl4b.onrender.com
+          NEXT_PUBLIC_BACKEND_URL: https://legalx-backend-gl4b.onrender.com
+
+      # The footer linked to a service that did not exist, and because it
+      # renders on every page Next prefetched that 404 everywhere.
+      - name: Every linked service slug exists
+        run: node scripts/check-slugs.cjs
