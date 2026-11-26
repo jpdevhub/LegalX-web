@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { LegalDocument, FormField } from '@/lib/documents'
 import { servicePriceInRupees, formatRupees, govtDutyNote } from '@/lib/documents'
 import { LeadGate } from './LeadGate'
+import { ConsultBeforeFiling } from '@/components/sections/documents/ConsultBeforeFiling'
 import { apiFetch, openRazorpayCheckout, CheckoutCancelled } from '@/lib/api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -71,9 +72,14 @@ function StepRequirements({ doc, onNext }: { doc: LegalDocument; onNext: () => v
       <h1 className="text-ink dark:text-white mb-2" style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 700, lineHeight: 1.2 }}>
         What you need for {doc.title}
       </h1>
-      <p className="text-body-sm text-body-text dark:text-slate-400 mb-8 leading-relaxed">
+      <p className="text-body-sm text-body-text dark:text-slate-400 mb-6 leading-relaxed">
         Gather these documents before you start — the whole process takes {doc.estimatedTime}.
       </p>
+
+      {/* Before the form, not after it. Once someone has filled in six screens
+          they are committed, and the choices worth asking about are made on
+          the way through. */}
+      <ConsultBeforeFiling serviceTitle={doc.title} variant="inline" />
 
       <div className="grid grid-cols-3 gap-3 mb-10">
         {[

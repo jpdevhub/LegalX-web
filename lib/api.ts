@@ -453,9 +453,18 @@ export interface ApiLawyer {
   reviews: LawyerReview[]
 }
 
-export async function apiGetLawyers(): Promise<ApiLawyer[]> {
-  const data = await apiFetch<{ lawyers: ApiLawyer[] }>('/api/lawyers')
+export async function apiGetLawyers(opts: { onlineOnly?: boolean } = {}): Promise<ApiLawyer[]> {
+  // onlineOnly filters in the database rather than fetching every verified
+  // advocate and dropping most of them here.
+  const qs = opts.onlineOnly ? '?onlineOnly=true' : ''
+  const data = await apiFetch<{ lawyers: ApiLawyer[] }>(`/api/lawyers${qs}`)
   return data.lawyers
+}
+
+/** How many advocates can actually be reached right now. 0 is a real answer. */
+export async function apiCountOnlineLawyers(): Promise<number> {
+  try { return (await apiGetLawyers({ onlineOnly: true })).length }
+  catch { return 0 }
 }
 
 export async function apiGetLawyer(slug: string): Promise<ApiLawyer | null> {

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { LegalDocument } from '@/lib/documents'
 import Link from 'next/link'
 import { FadeUp, StaggerParent, FadeUpChild } from '@/components/motion/MotionWrappers'
+import { ConsultBeforeFiling } from './ConsultBeforeFiling'
 
 // ── Document-type icons (SVG, inline) ────────────────────────────────────────
 function DocIcon({ iconKey }: { iconKey: string }) {
@@ -430,6 +431,9 @@ export function DocumentDetail({ doc }: { doc: LegalDocument }) {
       <DocDefinition doc={doc} />
       <DocBenefits doc={doc} />
       <DocRequiredDocs doc={doc} />
+      {/* Placed after the checklist and before the steps: the moment someone
+          has seen what is involved and is deciding whether to do it alone. */}
+      <ConsultBeforeFiling serviceTitle={doc.title} />
       <DocKeyPoints doc={doc} />
       <DocSteps doc={doc} />
       <DocFaq doc={doc} />
